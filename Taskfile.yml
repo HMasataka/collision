@@ -1,9 +1,9 @@
-version: '3'
+version: "3"
 
 vars:
   BINARY_NAME: collision
   BUILD_DIR: ./bin
-  MAIN_FILE: main.go
+  MAIN_FILE: ./cmd/collision/main.go
 
 tasks:
   default:
