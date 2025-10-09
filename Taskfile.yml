@@ -82,3 +82,19 @@ tasks:
       - task: fmt
       - task: vet
       - task: test
+
+  pre:
+    cmds:
+      - mkdir -p gen/pb
+
+  proto:
+    deps:
+      - pre
+    desc: Generate Go files from proto definitions
+    cmds:
+      - protoc --proto_path=api --go_out=gen/pb --go_opt=paths=source_relative --go-grpc_out=gen/pb --go-grpc_opt=paths=source_relative messages.proto
+      - protoc --proto_path=api --go_out=gen/pb --go_opt=paths=source_relative --go-grpc_out=gen/pb --go-grpc_opt=paths=source_relative frontend.proto
+    sources:
+      - "api/*.proto"
+    generates:
+      - "gen/pb/*.go"
