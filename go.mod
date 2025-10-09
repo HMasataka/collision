@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/redis/rueidis v1.0.66
 	github.com/rs/xid v1.6.0
+	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 )

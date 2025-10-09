@@ -11,11 +11,6 @@ type Ticket struct {
 	CreatedAt       time.Time      `json:"created_at"`
 }
 
-type Assignment struct {
-	Connection string         `json:"connection"`
-	Extensions map[string]any `json:"extensions"`
-}
-
 type SearchFields struct {
 	DoubleArgs map[string]float64 `json:"double_args"`
 	StringArgs map[string]string  `json:"string_args"`

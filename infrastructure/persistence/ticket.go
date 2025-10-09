@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultPendingReleaseTimeout = 1 * time.Minute
+	defaultAssignedDeleteTimeout = 1 * time.Minute
 )
 
 type ticketRepository struct {
@@ -53,6 +54,11 @@ func (r *ticketRepository) fetchTicketsLock() string {
 	return "fetchTicketsLock"
 }
 
+func (r *ticketRepository) assignmentData(ticketID string) string {
+	return fmt.Sprintf("assign:%s", ticketID)
+}
+
+// TODO serviceに移動する
 func (r *ticketRepository) GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error) {
 	// 複数のワーカーが同時にFetchしないようにロックを取得する
 	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
@@ -230,6 +236,120 @@ func (r *ticketRepository) Delete(ctx context.Context, target *entity.Ticket) er
 	query := r.client.B().Del().Key(r.ticketDataKey(target.ID)).Build()
 	if err := r.client.Do(ctx, query).Error(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (r *ticketRepository) ReleaseTickets(ctx context.Context, ticketIDs []string) error {
+	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
+	if err != nil {
+		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+	}
+	defer unlock()
+
+	query := r.client.B().Zrem().Key(r.pendingTicketKey()).Member(ticketIDs...).Build()
+
+	resp := r.client.Do(lockedCtx, query)
+	if err := resp.Error(); err != nil {
+		return fmt.Errorf("failed to release tickets: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ticketRepository) AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, error) {
+	var assignedTicketIDs, notAssignedTicketIDs []string
+	for _, asg := range asgs {
+		if len(asg.TicketIds) == 0 {
+			continue
+		}
+		// set assignment to a tickets
+		redis := r.client
+
+		if err := r.setAssignmentToTickets(ctx, redis, asg.TicketIds, asg.Assignment); err != nil {
+			notAssignedTicketIDs = append(notAssignedTicketIDs, asg.TicketIds...)
+			return notAssignedTicketIDs, err
+		}
+		assignedTicketIDs = append(assignedTicketIDs, asg.TicketIds...)
+	}
+	if len(assignedTicketIDs) > 0 {
+		// de-index assigned tickets
+		if err := r.DeleteIndexTickets(ctx, assignedTicketIDs); err != nil {
+			return notAssignedTicketIDs, fmt.Errorf("failed to deindex assigned tickets: %w", err)
+		}
+
+		if err := r.setTicketsExpiration(ctx, assignedTicketIDs, defaultAssignedDeleteTimeout); err != nil {
+			return notAssignedTicketIDs, err
+		}
+
+	}
+	return notAssignedTicketIDs, nil
+}
+
+func (r *ticketRepository) setAssignmentToTickets(ctx context.Context, redis rueidis.Client, ticketIDs []string, assignment *entity.Assignment) error {
+	queries := make([]rueidis.Completed, len(ticketIDs))
+	for i, ticketID := range ticketIDs {
+		data, err := json.Marshal(assignment)
+		if err != nil {
+			return fmt.Errorf("failed to encode assignemnt: %w", err)
+		}
+
+		queries[i] = redis.B().Set().
+			Key(r.assignmentData(ticketID)).
+			Value(rueidis.BinaryString(data)).
+			Ex(defaultAssignedDeleteTimeout).Build()
+	}
+
+	for _, resp := range redis.DoMulti(ctx, queries...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to set assignemnt data to redis: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *ticketRepository) setTicketsExpiration(ctx context.Context, ticketIDs []string, expiration time.Duration) error {
+	queries := make([]rueidis.Completed, len(ticketIDs))
+
+	for i, ticketID := range ticketIDs {
+		queries[i] = r.client.B().Expire().Key(r.ticketDataKey(ticketID)).Seconds(int64(expiration.Seconds())).Build()
+	}
+
+	for _, resp := range r.client.DoMulti(ctx, queries...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to set expiration to tickets: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *ticketRepository) DeleteIndexTickets(ctx context.Context, ticketIDs []string) error {
+	// Acquire locks to avoid race condition with GetActiveTicketIDs.
+	//
+	// Without locks, when the following order,
+	// The assigned ticket is fetched again by the other backend, resulting in overlapping matches.
+	//
+	// 1. (GetActiveTicketIDs) getAllTicketIDs
+	// 2. (deIndexTickets) ZREM and SREM from ticket index
+	// 3. (GetActiveTicketIDs) getPendingTicketIDs
+	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
+	if err != nil {
+		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+	}
+	defer unlock()
+
+	cmds := []rueidis.Completed{
+		r.client.B().Zrem().Key(r.pendingTicketKey()).Member(ticketIDs...).Build(),
+		r.client.B().Srem().Key(r.allTicketKey()).Member(ticketIDs...).Build(),
+	}
+
+	for _, resp := range r.client.DoMulti(lockedCtx, cmds...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to deindex tickets: %w", err)
+		}
 	}
 
 	return nil
