@@ -3,6 +3,7 @@ module github.com/HMasataka/collision
 go 1.24.0
 
 require (
+	github.com/bojand/hri v1.1.0
 	github.com/redis/rueidis v1.0.66
 	github.com/rs/xid v1.6.0
 	github.com/sethvargo/go-retry v0.3.0

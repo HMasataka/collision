@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/HMasataka/collision/infrastructure"
 	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
+	"github.com/bojand/hri"
 	"google.golang.org/grpc"
 )
 
@@ -53,7 +55,9 @@ func di() (usecase.MatchUsecase, error) {
 		matchProfile: MatchFunctionSimple1vs1,
 	}
 
-	return usecase.NewMatchUsecase(matchFunctions, nil, ticketRepository), nil
+	assigner := entity.AssignerFunc(dummyAssign)
+
+	return usecase.NewMatchUsecase(matchFunctions, assigner, ticketRepository), nil
 }
 
 func main() {
@@ -121,4 +125,26 @@ func newMatch(profile *entity.MatchProfile, tickets entity.Tickets) *entity.Matc
 		MatchFunction: "Simple1vs1",
 		Tickets:       tickets,
 	}
+}
+
+func dummyAssign(ctx context.Context, matches []*entity.Match) ([]*entity.AssignmentGroup, error) {
+	var asgs []*entity.AssignmentGroup
+	for _, match := range matches {
+		tids := ticketIDs(match)
+		conn := hri.Random()
+		log.Printf("assign '%s' to tickets: %v", conn, tids)
+		asgs = append(asgs, &entity.AssignmentGroup{
+			TicketIds:  tids,
+			Assignment: &entity.Assignment{Connection: conn},
+		})
+	}
+	return asgs, nil
+}
+
+func ticketIDs(match *entity.Match) []string {
+	var ids []string
+	for _, ticket := range match.Tickets {
+		ids = append(ids, ticket.ID)
+	}
+	return ids
 }
