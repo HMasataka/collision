@@ -9,7 +9,7 @@ type Match struct {
 	MatchId            string    `json:"match_id"`
 	MatchProfile       string    `json:"match_profile"`
 	MatchFunction      string    `json:"match_function"`
-	Tickets            []*Ticket `json:"tickets"`
+	Tickets            Tickets   `json:"tickets"`
 	Backfill           *Backfill `json:"backfill"`
 	Extensions         []byte    `json:"extensions"`
 	AllocateGameserver bool      `json:"allocate_gameserver"`

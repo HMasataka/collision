@@ -1,4 +1,4 @@
-package collision
+package infrastructure
 
 import (
 	"time"

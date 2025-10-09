@@ -15,8 +15,8 @@ type MatchUsecase interface {
 }
 
 type matchUsecase struct {
-	mmfs  map[*entity.MatchProfile]entity.MatchFunction
-	mmfMu sync.RWMutex
+	matchFunctions map[*entity.MatchProfile]entity.MatchFunction
+	mu             sync.RWMutex
 
 	assigner entity.Assigner
 
@@ -24,9 +24,16 @@ type matchUsecase struct {
 }
 
 func NewMatchUsecase(
+	matchFunctions map[*entity.MatchProfile]entity.MatchFunction,
+	assigner entity.Assigner,
 	ticketRepository repository.TicketRepository,
 ) MatchUsecase {
-	return &matchUsecase{}
+	return &matchUsecase{
+		matchFunctions:   matchFunctions,
+		mu:               sync.RWMutex{},
+		assigner:         assigner,
+		ticketRepository: ticketRepository,
+	}
 }
 
 func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) error {
@@ -85,9 +92,9 @@ func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*
 }
 
 func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) ([]*entity.Match, error) {
-	u.mmfMu.RLock()
-	mmfs := u.mmfs
-	u.mmfMu.RUnlock()
+	u.mu.RLock()
+	mmfs := u.matchFunctions
+	u.mu.RUnlock()
 
 	resCh := make(chan []*entity.Match, len(mmfs))
 	eg, ctx := errgroup.WithContext(ctx)
@@ -165,7 +172,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) erro
 func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matches []*entity.Match) []string {
 	matchedTickets := map[string]struct{}{}
 	for _, match := range matches {
-		for _, ticketID := range ticketIDsFromTickets(match.Tickets) {
+		for _, ticketID := range match.Tickets.IDs() {
 			matchedTickets[ticketID] = struct{}{}
 		}
 	}
@@ -187,12 +194,4 @@ func ticketIDsFromMatches(matches []*entity.Match) []string {
 		}
 	}
 	return ticketIDs
-}
-
-func ticketIDsFromTickets(tickets []*entity.Ticket) []string {
-	ids := make([]string, 0, len(tickets))
-	for _, ticket := range tickets {
-		ids = append(ids, ticket.ID)
-	}
-	return ids
 }

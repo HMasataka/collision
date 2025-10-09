@@ -11,6 +11,22 @@ type Ticket struct {
 	CreatedAt       time.Time      `json:"created_at"`
 }
 
+type Tickets []*Ticket
+
+func (t Tickets) IDs() []string {
+	ids := make([]string, 0, len(t))
+
+	for _, ticket := range t {
+		if ticket == nil {
+			continue
+		}
+
+		ids = append(ids, ticket.ID)
+	}
+
+	return ids
+}
+
 type SearchFields struct {
 	DoubleArgs map[string]float64 `json:"double_args"`
 	StringArgs map[string]string  `json:"string_args"`

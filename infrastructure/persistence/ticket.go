@@ -25,12 +25,12 @@ type ticketRepository struct {
 }
 
 func NewTicketRepository(
-	locker rueidislock.Locker,
 	client rueidis.Client,
+	locker rueidislock.Locker,
 ) repository.TicketRepository {
 	return &ticketRepository{
-		locker: locker,
 		client: client,
+		locker: locker,
 	}
 }
 
