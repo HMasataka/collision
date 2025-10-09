@@ -189,14 +189,6 @@ func ticketIDsFromMatches(matches []*entity.Match) []string {
 	return ticketIDs
 }
 
-func ticketIDsFromAssignmentGroups(asgs []*entity.AssignmentGroup) []string {
-	var ticketIDs []string
-	for _, asg := range asgs {
-		ticketIDs = append(ticketIDs, asg.TicketIds...)
-	}
-	return ticketIDs
-}
-
 func ticketIDsFromTickets(tickets []*entity.Ticket) []string {
 	ids := make([]string, 0, len(tickets))
 	for _, ticket := range tickets {

@@ -258,6 +258,30 @@ func (r *ticketRepository) ReleaseTickets(ctx context.Context, ticketIDs []strin
 	return nil
 }
 
+func (r *ticketRepository) GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, error) {
+	query := r.client.B().Get().Key(r.assignmentData(ticketID)).Build()
+
+	resp := r.client.Do(ctx, query)
+	if err := resp.Error(); err != nil {
+		if rueidis.IsRedisNil(err) {
+			return nil, entity.ErrAssignmentNotFound
+		}
+		return nil, fmt.Errorf("failed to get assignemnt: %w", err)
+	}
+
+	data, err := resp.AsBytes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get assignment as bytes: %w", err)
+	}
+
+	var as entity.Assignment
+	if err := json.Unmarshal(data, &as); err != nil {
+		return nil, fmt.Errorf("failed to decode assignment: %w", err)
+	}
+
+	return &as, nil
+}
+
 func (r *ticketRepository) AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, error) {
 	var assignedTicketIDs, notAssignedTicketIDs []string
 	for _, asg := range asgs {

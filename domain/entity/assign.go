@@ -5,8 +5,8 @@ import (
 )
 
 type Assignment struct {
-	Connection string         `json:"connection"`
-	Extensions map[string]any `json:"extensions"`
+	Connection string `json:"connection"`
+	Extensions []byte `json:"extensions"`
 }
 
 type AssignmentGroup struct {

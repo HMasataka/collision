@@ -26,8 +26,18 @@ message GetTicketRequest {
   string ticket_id = 1;
 }
 
+message WatchAssignmentsRequest {
+  string ticket_id = 1;
+}
+
+message WatchAssignmentsResponse {
+  Assignment assignment = 1;
+}
+
 service FrontendService {
   rpc CreateTicket(CreateTicketRequest) returns (CreateTicketResponse);
   rpc DeleteTicket(DeleteTicketRequest) returns (google.protobuf.Empty);
   rpc GetTicket(GetTicketRequest) returns (Ticket);
+
+  rpc WatchAssignments(WatchAssignmentsRequest) returns (stream WatchAssignmentsResponse);
 }

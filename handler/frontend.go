@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 
+	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/gen/pb"
 	"github.com/HMasataka/collision/usecase"
 	"google.golang.org/grpc/codes"
@@ -13,6 +14,7 @@ import (
 
 type Frontend struct {
 	ticketUsecase usecase.TicketUsecase
+	assignUsecase usecase.AssignUsecase
 
 	pb.UnimplementedFrontendServiceServer
 }
@@ -45,4 +47,31 @@ func (Frontend) DeleteTicket(context.Context, *pb.DeleteTicketRequest) (*emptypb
 
 func (Frontend) GetTicket(context.Context, *pb.GetTicketRequest) (*pb.Ticket, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTicket not implemented")
+}
+
+func (h Frontend) WatchAssignments(req *pb.WatchAssignmentsRequest, stream pb.FrontendService_WatchAssignmentsServer) error {
+	ticketID := req.GetTicketId()
+
+	if err := h.assignUsecase.Watch(stream.Context(), ticketID, func(assignment *entity.Assignment) error {
+		if assignment == nil {
+			return nil
+		}
+
+		pbAssignment := &pb.Assignment{
+			Connection: assignment.Connection,
+			Extensions: assignment.Extensions,
+		}
+
+		if err := stream.Send(&pb.WatchAssignmentsResponse{
+			Assignment: pbAssignment,
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return status.Errorf(codes.Internal, "failed to watch assignments: %v", err)
+	}
+
+	return status.Errorf(codes.Unimplemented, "method WatchAssignments not implemented")
 }

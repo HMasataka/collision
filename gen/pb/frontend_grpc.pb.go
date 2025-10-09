@@ -26,6 +26,7 @@ type FrontendServiceClient interface {
 	CreateTicket(ctx context.Context, in *CreateTicketRequest, opts ...grpc.CallOption) (*CreateTicketResponse, error)
 	DeleteTicket(ctx context.Context, in *DeleteTicketRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetTicket(ctx context.Context, in *GetTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
+	WatchAssignments(ctx context.Context, in *WatchAssignmentsRequest, opts ...grpc.CallOption) (FrontendService_WatchAssignmentsClient, error)
 }
 
 type frontendServiceClient struct {
@@ -63,6 +64,38 @@ func (c *frontendServiceClient) GetTicket(ctx context.Context, in *GetTicketRequ
 	return out, nil
 }
 
+func (c *frontendServiceClient) WatchAssignments(ctx context.Context, in *WatchAssignmentsRequest, opts ...grpc.CallOption) (FrontendService_WatchAssignmentsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FrontendService_ServiceDesc.Streams[0], "/openmatch.FrontendService/WatchAssignments", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &frontendServiceWatchAssignmentsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type FrontendService_WatchAssignmentsClient interface {
+	Recv() (*WatchAssignmentsResponse, error)
+	grpc.ClientStream
+}
+
+type frontendServiceWatchAssignmentsClient struct {
+	grpc.ClientStream
+}
+
+func (x *frontendServiceWatchAssignmentsClient) Recv() (*WatchAssignmentsResponse, error) {
+	m := new(WatchAssignmentsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // FrontendServiceServer is the server API for FrontendService service.
 // All implementations must embed UnimplementedFrontendServiceServer
 // for forward compatibility
@@ -70,6 +103,7 @@ type FrontendServiceServer interface {
 	CreateTicket(context.Context, *CreateTicketRequest) (*CreateTicketResponse, error)
 	DeleteTicket(context.Context, *DeleteTicketRequest) (*emptypb.Empty, error)
 	GetTicket(context.Context, *GetTicketRequest) (*Ticket, error)
+	WatchAssignments(*WatchAssignmentsRequest, FrontendService_WatchAssignmentsServer) error
 	mustEmbedUnimplementedFrontendServiceServer()
 }
 
@@ -85,6 +119,9 @@ func (UnimplementedFrontendServiceServer) DeleteTicket(context.Context, *DeleteT
 }
 func (UnimplementedFrontendServiceServer) GetTicket(context.Context, *GetTicketRequest) (*Ticket, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTicket not implemented")
+}
+func (UnimplementedFrontendServiceServer) WatchAssignments(*WatchAssignmentsRequest, FrontendService_WatchAssignmentsServer) error {
+	return status.Errorf(codes.Unimplemented, "method WatchAssignments not implemented")
 }
 func (UnimplementedFrontendServiceServer) mustEmbedUnimplementedFrontendServiceServer() {}
 
@@ -153,6 +190,27 @@ func _FrontendService_GetTicket_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FrontendService_WatchAssignments_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchAssignmentsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FrontendServiceServer).WatchAssignments(m, &frontendServiceWatchAssignmentsServer{stream})
+}
+
+type FrontendService_WatchAssignmentsServer interface {
+	Send(*WatchAssignmentsResponse) error
+	grpc.ServerStream
+}
+
+type frontendServiceWatchAssignmentsServer struct {
+	grpc.ServerStream
+}
+
+func (x *frontendServiceWatchAssignmentsServer) Send(m *WatchAssignmentsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // FrontendService_ServiceDesc is the grpc.ServiceDesc for FrontendService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -173,6 +231,12 @@ var FrontendService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FrontendService_GetTicket_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchAssignments",
+			Handler:       _FrontendService_WatchAssignments_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "frontend.proto",
 }

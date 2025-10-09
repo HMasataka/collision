@@ -17,6 +17,7 @@ type TicketRepository interface {
 	Find(ctx context.Context, id string) (*entity.Ticket, error)
 	Delete(ctx context.Context, target *entity.Ticket) error
 
+	GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, error)
 	AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, error)
 	ReleaseTickets(ctx context.Context, ticketIDs []string) error
 	DeleteIndexTickets(ctx context.Context, ticketIDs []string) error
