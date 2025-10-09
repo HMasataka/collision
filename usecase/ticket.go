@@ -20,7 +20,9 @@ type ticketUsecase struct {
 func NewTicketUsecase(
 	ticketRepository repository.TicketRepository,
 ) TicketUsecase {
-	return &ticketUsecase{}
+	return &ticketUsecase{
+		ticketRepository: ticketRepository,
+	}
 }
 
 func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) (*entity.Ticket, error) {

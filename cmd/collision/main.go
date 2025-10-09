@@ -38,15 +38,15 @@ var matchProfile = &entity.MatchProfile{
 	},
 }
 
-func di() (usecase.MatchUsecase, error) {
+func di() (usecase.MatchUsecase, usecase.TicketUsecase, usecase.AssignUsecase, error) {
 	redisClient, err := infrastructure.NewClient()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	redisLocker, err := infrastructure.NewLocker()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	ticketRepository := persistence.NewTicketRepository(redisClient, redisLocker)
@@ -57,7 +57,11 @@ func di() (usecase.MatchUsecase, error) {
 
 	assigner := entity.AssignerFunc(dummyAssign)
 
-	return usecase.NewMatchUsecase(matchFunctions, assigner, ticketRepository), nil
+	matchUsecase := usecase.NewMatchUsecase(matchFunctions, assigner, ticketRepository)
+	ticketUsecase := usecase.NewTicketUsecase(ticketRepository)
+	assignUsecase := usecase.NewAssignUsecase(ticketRepository)
+
+	return matchUsecase, ticketUsecase, assignUsecase, nil
 }
 
 func main() {
@@ -66,7 +70,7 @@ func main() {
 		panic(err)
 	}
 
-	matchUsecase, err := di()
+	matchUsecase, ticketUsecase, assignUsecase, err := di()
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +84,8 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	pb.RegisterFrontendServiceServer(grpcServer, &handler.Frontend{})
+	frontendHandler := handler.NewFrontend(ticketUsecase, assignUsecase)
+	pb.RegisterFrontendServiceServer(grpcServer, frontendHandler)
 
 	if err := grpcServer.Serve(listener); err != nil {
 		panic(err)

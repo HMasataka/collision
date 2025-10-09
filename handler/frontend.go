@@ -21,9 +21,11 @@ type Frontend struct {
 
 func NewFrontend(
 	ticketUsecase usecase.TicketUsecase,
+	assignUsecase usecase.AssignUsecase,
 ) *Frontend {
 	return &Frontend{
 		ticketUsecase: ticketUsecase,
+		assignUsecase: assignUsecase,
 	}
 }
 
@@ -73,5 +75,5 @@ func (h Frontend) WatchAssignments(req *pb.WatchAssignmentsRequest, stream pb.Fr
 		return status.Errorf(codes.Internal, "failed to watch assignments: %v", err)
 	}
 
-	return status.Errorf(codes.Unimplemented, "method WatchAssignments not implemented")
+	return nil
 }

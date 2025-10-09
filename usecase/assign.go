@@ -22,7 +22,9 @@ type assignUsecase struct {
 func NewAssignUsecase(
 	ticketRepository repository.TicketRepository,
 ) AssignUsecase {
-	return &assignUsecase{}
+	return &assignUsecase{
+		ticketRepository: ticketRepository,
+	}
 }
 
 const (
