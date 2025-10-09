@@ -49,6 +49,43 @@ func (r *ticketRepository) pendingTicketKey() string {
 	return "proposed_ticket_ids"
 }
 
+func (r *ticketRepository) fetchTicketsLock() string {
+	return "fetchTicketsLock"
+}
+
+func (r *ticketRepository) GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error) {
+	// 複数のワーカーが同時にFetchしないようにロックを取得する
+	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+	}
+	defer unlock()
+
+	allTicketIDs, err := r.GetAllTicketIDs(lockedCtx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all ticket IDs: %w", err)
+	}
+	if len(allTicketIDs) == 0 {
+		return nil, nil
+	}
+
+	pendingTicketIDs, err := r.GetPendingTicketIDs(lockedCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pending ticket IDs: %w", err)
+	}
+
+	activeTicketIDs := difference(allTicketIDs, pendingTicketIDs)
+	if len(activeTicketIDs) == 0 {
+		return nil, nil
+	}
+
+	if err := r.InsertPendingTicket(lockedCtx, activeTicketIDs); err != nil {
+		return nil, fmt.Errorf("failed to set tickets to pending: %w", err)
+	}
+
+	return activeTicketIDs, nil
+}
+
 func (r *ticketRepository) GetAllTicketIDs(ctx context.Context, limit int64) ([]string, error) {
 	query := r.client.B().Srandmember().Key(r.allTicketKey()).Count(limit).Build()
 
@@ -196,4 +233,20 @@ func (r *ticketRepository) Delete(ctx context.Context, target *entity.Ticket) er
 	}
 
 	return nil
+}
+
+// difference returns the elements in `a` that aren't in `b`.
+// https://stackoverflow.com/a/45428032
+func difference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
