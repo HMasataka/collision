@@ -6,9 +6,19 @@ option go_package = "./gen/pb";
 
 import "messages.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
 
 message CreateTicketRequest {
-  Ticket ticket = 1;
+  SearchFields search_fields = 1;
+  map<string, google.protobuf.Any> extensions = 2;
+}
+
+message CreateTicketResponse {
+  string id = 1;
+  SearchFields search_fields = 2;
+  map<string, google.protobuf.Any> extensions = 3;
+  google.protobuf.Timestamp create_time = 4;
 }
 
 message DeleteTicketRequest {
@@ -19,60 +29,8 @@ message GetTicketRequest {
   string ticket_id = 1;
 }
 
-message WatchAssignmentsRequest {
-  string ticket_id = 1;
-}
-
-message WatchAssignmentsResponse {
-  Assignment assignment = 1;
-}
-
-message AcknowledgeBackfillRequest {
-  string backfill_id = 1;
-  Assignment assignment = 2;
-}
-
-message AcknowledgeBackfillResponse {
-  Backfill backfill = 1;
-  repeated Ticket tickets = 2;
-}
-
-message CreateBackfillRequest {
-  Backfill backfill = 1;
-}
-
-message DeleteBackfillRequest {
-  string backfill_id = 1;
-}
-
-message GetBackfillRequest {
-  string backfill_id = 1;
-}
-
-message UpdateBackfillRequest {
-  Backfill backfill = 1;
-}
-
-message DeindexTicketRequest {
-  string ticket_id = 1;
-}
-
-message DeindexTicketResponse {
-}
-
 service FrontendService {
-  rpc CreateTicket(CreateTicketRequest) returns (Ticket);
+  rpc CreateTicket(CreateTicketRequest) returns (CreateTicketResponse);
   rpc DeleteTicket(DeleteTicketRequest) returns (google.protobuf.Empty);
   rpc GetTicket(GetTicketRequest) returns (Ticket);
-  rpc WatchAssignments(WatchAssignmentsRequest) returns (stream WatchAssignmentsResponse);
-  rpc AcknowledgeBackfill(AcknowledgeBackfillRequest) returns (AcknowledgeBackfillResponse);
-  rpc CreateBackfill(CreateBackfillRequest) returns (Backfill);
-  rpc DeleteBackfill(DeleteBackfillRequest) returns (google.protobuf.Empty);
-  rpc GetBackfill(GetBackfillRequest) returns (Backfill);
-  rpc UpdateBackfill(UpdateBackfillRequest) returns (Backfill);
-
-  // DeindexTickets removes the ticket from the matching candidates.
-  // unlike DeleteTicket, it does not delete the ticket body;
-  // you can still get the Assignment with GetTicket after Deindex.
-  rpc DeindexTicket(DeindexTicketRequest) returns (DeindexTicketResponse);
 }

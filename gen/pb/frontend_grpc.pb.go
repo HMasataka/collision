@@ -23,19 +23,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FrontendServiceClient interface {
-	CreateTicket(ctx context.Context, in *CreateTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
+	CreateTicket(ctx context.Context, in *CreateTicketRequest, opts ...grpc.CallOption) (*CreateTicketResponse, error)
 	DeleteTicket(ctx context.Context, in *DeleteTicketRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetTicket(ctx context.Context, in *GetTicketRequest, opts ...grpc.CallOption) (*Ticket, error)
-	WatchAssignments(ctx context.Context, in *WatchAssignmentsRequest, opts ...grpc.CallOption) (FrontendService_WatchAssignmentsClient, error)
-	AcknowledgeBackfill(ctx context.Context, in *AcknowledgeBackfillRequest, opts ...grpc.CallOption) (*AcknowledgeBackfillResponse, error)
-	CreateBackfill(ctx context.Context, in *CreateBackfillRequest, opts ...grpc.CallOption) (*Backfill, error)
-	DeleteBackfill(ctx context.Context, in *DeleteBackfillRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetBackfill(ctx context.Context, in *GetBackfillRequest, opts ...grpc.CallOption) (*Backfill, error)
-	UpdateBackfill(ctx context.Context, in *UpdateBackfillRequest, opts ...grpc.CallOption) (*Backfill, error)
-	// DeindexTickets removes the ticket from the matching candidates.
-	// unlike DeleteTicket, it does not delete the ticket body;
-	// you can still get the Assignment with GetTicket after Deindex.
-	DeindexTicket(ctx context.Context, in *DeindexTicketRequest, opts ...grpc.CallOption) (*DeindexTicketResponse, error)
 }
 
 type frontendServiceClient struct {
@@ -46,8 +36,8 @@ func NewFrontendServiceClient(cc grpc.ClientConnInterface) FrontendServiceClient
 	return &frontendServiceClient{cc}
 }
 
-func (c *frontendServiceClient) CreateTicket(ctx context.Context, in *CreateTicketRequest, opts ...grpc.CallOption) (*Ticket, error) {
-	out := new(Ticket)
+func (c *frontendServiceClient) CreateTicket(ctx context.Context, in *CreateTicketRequest, opts ...grpc.CallOption) (*CreateTicketResponse, error) {
+	out := new(CreateTicketResponse)
 	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/CreateTicket", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -73,109 +63,13 @@ func (c *frontendServiceClient) GetTicket(ctx context.Context, in *GetTicketRequ
 	return out, nil
 }
 
-func (c *frontendServiceClient) WatchAssignments(ctx context.Context, in *WatchAssignmentsRequest, opts ...grpc.CallOption) (FrontendService_WatchAssignmentsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &FrontendService_ServiceDesc.Streams[0], "/openmatch.FrontendService/WatchAssignments", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &frontendServiceWatchAssignmentsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type FrontendService_WatchAssignmentsClient interface {
-	Recv() (*WatchAssignmentsResponse, error)
-	grpc.ClientStream
-}
-
-type frontendServiceWatchAssignmentsClient struct {
-	grpc.ClientStream
-}
-
-func (x *frontendServiceWatchAssignmentsClient) Recv() (*WatchAssignmentsResponse, error) {
-	m := new(WatchAssignmentsResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *frontendServiceClient) AcknowledgeBackfill(ctx context.Context, in *AcknowledgeBackfillRequest, opts ...grpc.CallOption) (*AcknowledgeBackfillResponse, error) {
-	out := new(AcknowledgeBackfillResponse)
-	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/AcknowledgeBackfill", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *frontendServiceClient) CreateBackfill(ctx context.Context, in *CreateBackfillRequest, opts ...grpc.CallOption) (*Backfill, error) {
-	out := new(Backfill)
-	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/CreateBackfill", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *frontendServiceClient) DeleteBackfill(ctx context.Context, in *DeleteBackfillRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/DeleteBackfill", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *frontendServiceClient) GetBackfill(ctx context.Context, in *GetBackfillRequest, opts ...grpc.CallOption) (*Backfill, error) {
-	out := new(Backfill)
-	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/GetBackfill", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *frontendServiceClient) UpdateBackfill(ctx context.Context, in *UpdateBackfillRequest, opts ...grpc.CallOption) (*Backfill, error) {
-	out := new(Backfill)
-	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/UpdateBackfill", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *frontendServiceClient) DeindexTicket(ctx context.Context, in *DeindexTicketRequest, opts ...grpc.CallOption) (*DeindexTicketResponse, error) {
-	out := new(DeindexTicketResponse)
-	err := c.cc.Invoke(ctx, "/openmatch.FrontendService/DeindexTicket", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // FrontendServiceServer is the server API for FrontendService service.
 // All implementations must embed UnimplementedFrontendServiceServer
 // for forward compatibility
 type FrontendServiceServer interface {
-	CreateTicket(context.Context, *CreateTicketRequest) (*Ticket, error)
+	CreateTicket(context.Context, *CreateTicketRequest) (*CreateTicketResponse, error)
 	DeleteTicket(context.Context, *DeleteTicketRequest) (*emptypb.Empty, error)
 	GetTicket(context.Context, *GetTicketRequest) (*Ticket, error)
-	WatchAssignments(*WatchAssignmentsRequest, FrontendService_WatchAssignmentsServer) error
-	AcknowledgeBackfill(context.Context, *AcknowledgeBackfillRequest) (*AcknowledgeBackfillResponse, error)
-	CreateBackfill(context.Context, *CreateBackfillRequest) (*Backfill, error)
-	DeleteBackfill(context.Context, *DeleteBackfillRequest) (*emptypb.Empty, error)
-	GetBackfill(context.Context, *GetBackfillRequest) (*Backfill, error)
-	UpdateBackfill(context.Context, *UpdateBackfillRequest) (*Backfill, error)
-	// DeindexTickets removes the ticket from the matching candidates.
-	// unlike DeleteTicket, it does not delete the ticket body;
-	// you can still get the Assignment with GetTicket after Deindex.
-	DeindexTicket(context.Context, *DeindexTicketRequest) (*DeindexTicketResponse, error)
 	mustEmbedUnimplementedFrontendServiceServer()
 }
 
@@ -183,7 +77,7 @@ type FrontendServiceServer interface {
 type UnimplementedFrontendServiceServer struct {
 }
 
-func (UnimplementedFrontendServiceServer) CreateTicket(context.Context, *CreateTicketRequest) (*Ticket, error) {
+func (UnimplementedFrontendServiceServer) CreateTicket(context.Context, *CreateTicketRequest) (*CreateTicketResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTicket not implemented")
 }
 func (UnimplementedFrontendServiceServer) DeleteTicket(context.Context, *DeleteTicketRequest) (*emptypb.Empty, error) {
@@ -191,27 +85,6 @@ func (UnimplementedFrontendServiceServer) DeleteTicket(context.Context, *DeleteT
 }
 func (UnimplementedFrontendServiceServer) GetTicket(context.Context, *GetTicketRequest) (*Ticket, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTicket not implemented")
-}
-func (UnimplementedFrontendServiceServer) WatchAssignments(*WatchAssignmentsRequest, FrontendService_WatchAssignmentsServer) error {
-	return status.Errorf(codes.Unimplemented, "method WatchAssignments not implemented")
-}
-func (UnimplementedFrontendServiceServer) AcknowledgeBackfill(context.Context, *AcknowledgeBackfillRequest) (*AcknowledgeBackfillResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AcknowledgeBackfill not implemented")
-}
-func (UnimplementedFrontendServiceServer) CreateBackfill(context.Context, *CreateBackfillRequest) (*Backfill, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateBackfill not implemented")
-}
-func (UnimplementedFrontendServiceServer) DeleteBackfill(context.Context, *DeleteBackfillRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteBackfill not implemented")
-}
-func (UnimplementedFrontendServiceServer) GetBackfill(context.Context, *GetBackfillRequest) (*Backfill, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBackfill not implemented")
-}
-func (UnimplementedFrontendServiceServer) UpdateBackfill(context.Context, *UpdateBackfillRequest) (*Backfill, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateBackfill not implemented")
-}
-func (UnimplementedFrontendServiceServer) DeindexTicket(context.Context, *DeindexTicketRequest) (*DeindexTicketResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeindexTicket not implemented")
 }
 func (UnimplementedFrontendServiceServer) mustEmbedUnimplementedFrontendServiceServer() {}
 
@@ -280,135 +153,6 @@ func _FrontendService_GetTicket_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _FrontendService_WatchAssignments_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(WatchAssignmentsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(FrontendServiceServer).WatchAssignments(m, &frontendServiceWatchAssignmentsServer{stream})
-}
-
-type FrontendService_WatchAssignmentsServer interface {
-	Send(*WatchAssignmentsResponse) error
-	grpc.ServerStream
-}
-
-type frontendServiceWatchAssignmentsServer struct {
-	grpc.ServerStream
-}
-
-func (x *frontendServiceWatchAssignmentsServer) Send(m *WatchAssignmentsResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _FrontendService_AcknowledgeBackfill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AcknowledgeBackfillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FrontendServiceServer).AcknowledgeBackfill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/openmatch.FrontendService/AcknowledgeBackfill",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServiceServer).AcknowledgeBackfill(ctx, req.(*AcknowledgeBackfillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FrontendService_CreateBackfill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateBackfillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FrontendServiceServer).CreateBackfill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/openmatch.FrontendService/CreateBackfill",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServiceServer).CreateBackfill(ctx, req.(*CreateBackfillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FrontendService_DeleteBackfill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteBackfillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FrontendServiceServer).DeleteBackfill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/openmatch.FrontendService/DeleteBackfill",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServiceServer).DeleteBackfill(ctx, req.(*DeleteBackfillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FrontendService_GetBackfill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBackfillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FrontendServiceServer).GetBackfill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/openmatch.FrontendService/GetBackfill",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServiceServer).GetBackfill(ctx, req.(*GetBackfillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FrontendService_UpdateBackfill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateBackfillRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FrontendServiceServer).UpdateBackfill(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/openmatch.FrontendService/UpdateBackfill",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServiceServer).UpdateBackfill(ctx, req.(*UpdateBackfillRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FrontendService_DeindexTicket_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeindexTicketRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FrontendServiceServer).DeindexTicket(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/openmatch.FrontendService/DeindexTicket",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FrontendServiceServer).DeindexTicket(ctx, req.(*DeindexTicketRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // FrontendService_ServiceDesc is the grpc.ServiceDesc for FrontendService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -428,37 +172,7 @@ var FrontendService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetTicket",
 			Handler:    _FrontendService_GetTicket_Handler,
 		},
-		{
-			MethodName: "AcknowledgeBackfill",
-			Handler:    _FrontendService_AcknowledgeBackfill_Handler,
-		},
-		{
-			MethodName: "CreateBackfill",
-			Handler:    _FrontendService_CreateBackfill_Handler,
-		},
-		{
-			MethodName: "DeleteBackfill",
-			Handler:    _FrontendService_DeleteBackfill_Handler,
-		},
-		{
-			MethodName: "GetBackfill",
-			Handler:    _FrontendService_GetBackfill_Handler,
-		},
-		{
-			MethodName: "UpdateBackfill",
-			Handler:    _FrontendService_UpdateBackfill_Handler,
-		},
-		{
-			MethodName: "DeindexTicket",
-			Handler:    _FrontendService_DeindexTicket_Handler,
-		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "WatchAssignments",
-			Handler:       _FrontendService_WatchAssignments_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "frontend.proto",
 }

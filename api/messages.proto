@@ -9,12 +9,11 @@ import "google/protobuf/timestamp.proto";
 
 message Ticket {
   string id = 1;
-  Assignment assignment = 3;
-  SearchFields search_fields = 4;
-  map<string, google.protobuf.Any> extensions = 5;
-  map<string, google.protobuf.Any> persistent_field = 6;
-  google.protobuf.Timestamp create_time = 7;
-  reserved 2;
+  Assignment assignment = 2;
+  SearchFields search_fields = 3;
+  map<string, google.protobuf.Any> extensions = 4;
+  map<string, google.protobuf.Any> persistent_field = 5;
+  google.protobuf.Timestamp create_time = 6;
 }
 
 message SearchFields {
