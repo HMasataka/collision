@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislock"
+)
+
+const (
+	defaultPendingReleaseTimeout = 1 * time.Minute
 )
 
 type ticketRepository struct {
@@ -40,6 +45,10 @@ func (r *ticketRepository) allTicketKey() string {
 	return "alltickets"
 }
 
+func (r *ticketRepository) pendingTicketKey() string {
+	return "proposed_ticket_ids"
+}
+
 func (r *ticketRepository) GetAllTicketIDs(ctx context.Context, limit int64) ([]string, error) {
 	query := r.client.B().Srandmember().Key(r.allTicketKey()).Count(limit).Build()
 
@@ -58,6 +67,44 @@ func (r *ticketRepository) GetAllTicketIDs(ctx context.Context, limit int64) ([]
 	}
 
 	return allTicketIDs, nil
+}
+
+func (r *ticketRepository) GetPendingTicketIDs(ctx context.Context) ([]string, error) {
+	rangeMin := strconv.FormatInt(time.Now().Add(-defaultPendingReleaseTimeout).Unix(), 10)
+	rangeMax := strconv.FormatInt(time.Now().Add(1*time.Hour).Unix(), 10)
+
+	query := r.client.B().Zrangebyscore().Key(r.pendingTicketKey()).Min(rangeMin).Max(rangeMax).Build()
+
+	resp := r.client.Do(ctx, query)
+	if err := resp.Error(); err != nil {
+		if rueidis.IsRedisNil(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get pending ticket index: %w", err)
+	}
+
+	pendingTicketIDs, err := resp.AsStrSlice()
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode pending ticket index as str slice: %w", err)
+	}
+
+	return pendingTicketIDs, nil
+}
+
+func (r *ticketRepository) InsertPendingTicket(ctx context.Context, ticketIDs []string) error {
+	score := float64(time.Now().Unix())
+
+	query := r.client.B().Zadd().Key(r.pendingTicketKey()).ScoreMember()
+	for _, ticketID := range ticketIDs {
+		query = query.ScoreMember(score, ticketID)
+	}
+
+	resp := r.client.Do(ctx, query.Build())
+	if err := resp.Error(); err != nil {
+		return fmt.Errorf("failed to set tickets to pending state: %w", err)
+	}
+
+	return nil
 }
 
 func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, error) {
