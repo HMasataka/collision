@@ -6,19 +6,16 @@ option go_package = "./gen/pb";
 
 import "messages.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
 message CreateTicketRequest {
   SearchFields search_fields = 1;
-  map<string, google.protobuf.Any> extensions = 2;
+  bytes extensions = 2;
 }
 
 message CreateTicketResponse {
   string id = 1;
-  SearchFields search_fields = 2;
-  map<string, google.protobuf.Any> extensions = 3;
-  google.protobuf.Timestamp create_time = 4;
+  google.protobuf.Timestamp create_time = 2;
 }
 
 message DeleteTicketRequest {

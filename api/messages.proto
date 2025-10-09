@@ -11,9 +11,8 @@ message Ticket {
   string id = 1;
   Assignment assignment = 2;
   SearchFields search_fields = 3;
-  map<string, google.protobuf.Any> extensions = 4;
-  map<string, google.protobuf.Any> persistent_field = 5;
-  google.protobuf.Timestamp create_time = 6;
+  bytes extensions = 4;
+  google.protobuf.Timestamp create_time = 5;
 }
 
 message SearchFields {
@@ -24,8 +23,7 @@ message SearchFields {
 
 message Assignment {
   string connection = 1;
-  map<string, google.protobuf.Any> extensions = 4;
-  reserved 2, 3;
+  bytes extensions = 2;
 }
 
 message DoubleRangeFilter {
@@ -63,7 +61,7 @@ message Pool {
 message MatchProfile {
   string name = 1;
   repeated Pool pools = 3;
-  map<string, google.protobuf.Any> extensions = 5;
+  bytes extensions = 5;
   reserved 2, 4;
 }
 
@@ -72,7 +70,7 @@ message Match {
   string match_profile = 2;
   string match_function = 3;
   repeated Ticket tickets = 4;
-  map<string, google.protobuf.Any> extensions = 7;
+  bytes extensions = 7;
   Backfill backfill = 8;
   bool allocate_gameserver = 9;
   reserved 5, 6;
@@ -81,7 +79,7 @@ message Match {
 message Backfill {
   string id = 1;
   SearchFields search_fields = 2;
-  map<string, google.protobuf.Any> extensions = 3;
+  bytes extensions = 3;
   map<string, google.protobuf.Any> persistent_field = 4;
   google.protobuf.Timestamp create_time = 5;
   int64 generation = 6;
