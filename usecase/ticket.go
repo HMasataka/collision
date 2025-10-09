@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
@@ -30,9 +31,7 @@ func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.S
 		SearchFields: searchFields,
 	}
 
-	if err := u.ticketRepository.WithLock(ctx, id, func(ctx context.Context) error {
-		return u.ticketRepository.Insert(ctx, ticket)
-	}); err != nil {
+	if err := u.ticketRepository.Insert(ctx, ticket, 10*time.Minute); err != nil {
 		return nil, err
 	}
 
