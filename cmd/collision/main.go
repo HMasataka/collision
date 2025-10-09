@@ -1,56 +1,39 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"time"
+	"net"
 
-	"github.com/HMasataka/collision"
+	"github.com/HMasataka/collision/gen/pb"
+	"github.com/HMasataka/collision/handler"
+	"google.golang.org/grpc"
 )
 
+func getListener() (net.Listener, error) {
+	port := "31080"
+	address := fmt.Sprintf("127.0.0.1:%v", port)
+
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("Listening on", address)
+
+	return listener, nil
+}
+
 func main() {
-	ctx := context.Background()
-
-	client, err := collision.NewClient()
-	if err != nil {
-		panic(err)
-	}
-	defer client.Close()
-
-	query := client.B().Ping().Build()
-	if err := client.Do(ctx, query).Error(); err != nil {
-		panic(err)
-	}
-
-	query = client.B().Set().Key("my-key").Value("initial").Build()
-	if err := client.Do(ctx, query).Error(); err != nil {
-		panic(err)
-	}
-
-	locker, err := collision.NewLocker()
+	listener, err := getListener()
 	if err != nil {
 		panic(err)
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	grpcServer := grpc.NewServer()
 
-	_, ul, err := locker.WithContext(ctx, "my-key")
-	if err != nil {
+	pb.RegisterFrontendServiceServer(grpcServer, &handler.Frontend{})
+
+	if err := grpcServer.Serve(listener); err != nil {
 		panic(err)
 	}
-	defer ul()
-
-	_, unlock, err := locker.WithContext(timeoutCtx, "my-key")
-	if err != nil {
-		if err == context.DeadlineExceeded {
-			fmt.Println("ロック取得がタイムアウトしました")
-			return
-		}
-		fmt.Println("ロック取得に失敗しました:", err)
-		return
-	}
-	defer unlock()
-
-	fmt.Println("ロックを取得しました")
 }
