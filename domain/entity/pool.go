@@ -17,73 +17,67 @@ func (pf *Pool) In(ticket *Ticket) bool {
 	}
 
 	s := ticket.SearchFields
-
 	if s == nil {
 		s = &SearchFields{}
 	}
 
-	if !pf.CreatedAfter.IsZero() || !pf.CreatedBefore.IsZero() {
-		ct := ticket.CreatedAt
+	return pf.matchesCreatedTime(ticket.CreatedAt) &&
+		pf.matchesDoubleRanges(s) &&
+		pf.matchesStringEquals(s) &&
+		pf.matchesTags(s)
+}
 
-		if !pf.CreatedAfter.IsZero() {
-			if !ct.After(pf.CreatedAfter) {
-				return false
-			}
-		}
-
-		if !pf.CreatedBefore.IsZero() {
-			if !ct.Before(pf.CreatedBefore) {
-				return false
-			}
-		}
+func (pf *Pool) matchesCreatedTime(createdAt time.Time) bool {
+	if pf.CreatedAfter.IsZero() && pf.CreatedBefore.IsZero() {
+		return true
 	}
 
+	if !pf.CreatedAfter.IsZero() && !createdAt.After(pf.CreatedAfter) {
+		return false
+	}
+
+	if !pf.CreatedBefore.IsZero() && !createdAt.Before(pf.CreatedBefore) {
+		return false
+	}
+
+	return true
+}
+
+func (pf *Pool) matchesDoubleRanges(s *SearchFields) bool {
 	for _, f := range pf.DoubleRangeFilters {
 		v, ok := s.DoubleArgs[f.DoubleArg]
 		if !ok {
 			return false
 		}
 
-		switch f.Exclude {
-		case DoubleRangeFilterNone:
-			// Not simplified so that NaN cases are handled correctly.
-			if !(f.Min <= v && v <= f.Max) {
-				return false
-			}
-		case DoubleRangeFilterMin:
-			if !(f.Min < v && v <= f.Max) {
-				return false
-			}
-		case DoubleRangeFilterMax:
-			if !(f.Min <= v && v < f.Max) {
-				return false
-			}
-		case DoubleRangeFilterBoth:
-			if !(f.Min < v && v < f.Max) {
-				return false
-			}
+		if !f.isInRange(v) {
+			return false
 		}
-
 	}
 
+	return true
+}
+
+func (pf *Pool) matchesStringEquals(s *SearchFields) bool {
 	for _, f := range pf.StringEqualsFilters {
 		v, ok := s.StringArgs[f.StringArg]
 		if !ok {
 			return false
 		}
+
 		if f.Value != v {
 			return false
 		}
 	}
 
-outer:
+	return true
+}
+
+func (pf *Pool) matchesTags(s *SearchFields) bool {
 	for _, f := range pf.TagPresentFilters {
-		for _, v := range s.Tags {
-			if v == f.Tag {
-				continue outer
-			}
+		if !f.isPresentIn(s.Tags) {
+			return false
 		}
-		return false
 	}
 
 	return true
