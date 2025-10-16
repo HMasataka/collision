@@ -6,7 +6,7 @@ import (
 )
 
 type Match struct {
-	MatchId            string    `json:"match_id"`
+	MatchID            string    `json:"match_id"`
 	MatchProfile       string    `json:"match_profile"`
 	MatchFunction      string    `json:"match_function"`
 	Tickets            Tickets   `json:"tickets"`
@@ -111,19 +111,19 @@ func (pf *Pool) In(ticket *Ticket) bool {
 		switch f.Exclude {
 		case DoubleRangeFilter_NONE:
 			// Not simplified so that NaN cases are handled correctly.
-			if !(v >= f.Min && v <= f.Max) {
+			if !(f.Min <= v && v <= f.Max) {
 				return false
 			}
 		case DoubleRangeFilter_MIN:
-			if !(v > f.Min && v <= f.Max) {
+			if !(f.Min < v && v <= f.Max) {
 				return false
 			}
 		case DoubleRangeFilter_MAX:
-			if !(v >= f.Min && v < f.Max) {
+			if !(f.Min <= v && v < f.Max) {
 				return false
 			}
 		case DoubleRangeFilter_BOTH:
-			if !(v > f.Min && v < f.Max) {
+			if !(f.Min < v && v < f.Max) {
 				return false
 			}
 		}

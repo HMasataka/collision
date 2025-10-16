@@ -26,7 +26,7 @@ func NewSimple1vs1MatchFunction() entity.MatchFunction {
 
 func newMatch(profile *entity.MatchProfile, tickets entity.Tickets) *entity.Match {
 	return &entity.Match{
-		MatchId:       fmt.Sprintf("%s_%v", profile.Name, tickets.IDs()),
+		MatchID:       fmt.Sprintf("%s_%v", profile.Name, tickets.IDs()),
 		MatchProfile:  profile.Name,
 		MatchFunction: "Simple1vs1",
 		Tickets:       tickets,

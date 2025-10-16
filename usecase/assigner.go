@@ -13,25 +13,16 @@ func NewRandomAssigner() entity.Assigner {
 		var asgs []*entity.AssignmentGroup
 
 		for _, match := range matches {
-			tids := ticketIDs(match)
+			ticketIDs := match.Tickets.IDs()
 			conn := hri.Random()
-			log.Printf("assign '%s' to tickets: %v", conn, tids)
+			log.Printf("assign '%s' to tickets: %v", conn, ticketIDs)
+
 			asgs = append(asgs, &entity.AssignmentGroup{
-				TicketIds:  tids,
+				TicketIds:  ticketIDs,
 				Assignment: &entity.Assignment{Connection: conn},
 			})
 		}
 
 		return asgs, nil
 	})
-}
-
-func ticketIDs(match *entity.Match) []string {
-	var ids []string
-
-	for _, ticket := range match.Tickets {
-		ids = append(ids, ticket.ID)
-	}
-
-	return ids
 }
