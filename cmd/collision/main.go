@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/HMasataka/collision/infrastructure"
 	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
-	"github.com/bojand/hri"
 	"google.golang.org/grpc"
 )
 
@@ -52,10 +50,10 @@ func di() (usecase.MatchUsecase, usecase.TicketUsecase, usecase.AssignUsecase, e
 	ticketRepository := persistence.NewTicketRepository(redisClient, redisLocker)
 
 	matchFunctions := map[*entity.MatchProfile]entity.MatchFunction{
-		matchProfile: MatchFunctionSimple1vs1,
+		matchProfile: usecase.NewSimple1vs1MatchFunction(),
 	}
 
-	assigner := entity.AssignerFunc(dummyAssign)
+	assigner := usecase.NewRandomAssigner()
 
 	matchUsecase := usecase.NewMatchUsecase(matchFunctions, assigner, ticketRepository)
 	ticketUsecase := usecase.NewTicketUsecase(ticketRepository)
@@ -95,6 +93,7 @@ func main() {
 func startMatchLoop(ctx context.Context, matchUsecase usecase.MatchUsecase) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -108,48 +107,4 @@ func startMatchLoop(ctx context.Context, matchUsecase usecase.MatchUsecase) erro
 		}
 
 	}
-}
-
-var MatchFunctionSimple1vs1 = entity.MatchFunctionFunc(func(ctx context.Context, profile *entity.MatchProfile, poolTickets map[string][]*entity.Ticket) ([]*entity.Match, error) {
-	var matches []*entity.Match
-	for _, tickets := range poolTickets {
-		for len(tickets) >= 2 {
-			match := newMatch(profile, tickets[:2])
-			match.AllocateGameserver = true
-			tickets = tickets[2:]
-			matches = append(matches, match)
-		}
-	}
-	return matches, nil
-})
-
-func newMatch(profile *entity.MatchProfile, tickets entity.Tickets) *entity.Match {
-	return &entity.Match{
-		MatchId:       fmt.Sprintf("%s_%v", profile.Name, tickets.IDs()),
-		MatchProfile:  profile.Name,
-		MatchFunction: "Simple1vs1",
-		Tickets:       tickets,
-	}
-}
-
-func dummyAssign(ctx context.Context, matches []*entity.Match) ([]*entity.AssignmentGroup, error) {
-	var asgs []*entity.AssignmentGroup
-	for _, match := range matches {
-		tids := ticketIDs(match)
-		conn := hri.Random()
-		log.Printf("assign '%s' to tickets: %v", conn, tids)
-		asgs = append(asgs, &entity.AssignmentGroup{
-			TicketIds:  tids,
-			Assignment: &entity.Assignment{Connection: conn},
-		})
-	}
-	return asgs, nil
-}
-
-func ticketIDs(match *entity.Match) []string {
-	var ids []string
-	for _, ticket := range match.Tickets {
-		ids = append(ids, ticket.ID)
-	}
-	return ids
 }
