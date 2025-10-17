@@ -55,7 +55,7 @@ func di() (usecase.MatchUsecase, usecase.TicketUsecase, usecase.AssignUsecase, e
 
 	assigner := usecase.NewRandomAssigner()
 
-	matchUsecase := usecase.NewMatchUsecase(matchFunctions, assigner, ticketRepository)
+	matchUsecase := usecase.NewMatchUsecase(matchFunctions, assigner, nil, ticketRepository)
 	ticketUsecase := usecase.NewTicketUsecase(ticketRepository)
 	assignUsecase := usecase.NewAssignUsecase(ticketRepository)
 

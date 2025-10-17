@@ -15,10 +15,11 @@ type MatchUsecase interface {
 }
 
 type matchUsecase struct {
+	mutex          sync.RWMutex
 	matchFunctions map[*entity.MatchProfile]entity.MatchFunction
-	mu             sync.RWMutex
 
-	assigner entity.Assigner
+	assigner  entity.Assigner
+	evaluator entity.Evaluator
 
 	ticketRepository repository.TicketRepository
 }
@@ -26,13 +27,15 @@ type matchUsecase struct {
 func NewMatchUsecase(
 	matchFunctions map[*entity.MatchProfile]entity.MatchFunction,
 	assigner entity.Assigner,
+	evaluator entity.Evaluator,
 	ticketRepository repository.TicketRepository,
 ) MatchUsecase {
 	return &matchUsecase{
+		mutex:            sync.RWMutex{},
 		matchFunctions:   matchFunctions,
-		mu:               sync.RWMutex{},
 		assigner:         assigner,
 		ticketRepository: ticketRepository,
+		evaluator:        evaluator,
 	}
 }
 
@@ -47,6 +50,11 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 	}
 
 	matches, err := u.makeMatches(ctx, activeTickets)
+	if err != nil {
+		return err
+	}
+
+	matches, err = u.evaluateMatches(ctx, matches)
 	if err != nil {
 		return err
 	}
@@ -92,9 +100,9 @@ func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*
 }
 
 func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) ([]*entity.Match, error) {
-	u.mu.RLock()
+	u.mutex.RLock()
 	mmfs := u.matchFunctions
-	u.mu.RUnlock()
+	u.mutex.RUnlock()
 
 	resCh := make(chan []*entity.Match, len(mmfs))
 	eg, ctx := errgroup.WithContext(ctx)
@@ -146,6 +154,32 @@ func filterTickets(profile *entity.MatchProfile, tickets []*entity.Ticket) (map[
 	return poolTickets, nil
 }
 
+func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Match) ([]*entity.Match, error) {
+	if u.evaluator == nil {
+		return matches, nil
+	}
+
+	evaluatedMatches := make([]*entity.Match, 0, len(matches))
+
+	evaluatedMatchIDs, err := u.evaluator.Evaluate(ctx, matches)
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate matches: %w", err)
+	}
+
+	evaluatedMap := map[string]struct{}{}
+	for _, evaluatedID := range evaluatedMatchIDs {
+		evaluatedMap[evaluatedID] = struct{}{}
+	}
+
+	for _, match := range matches {
+		if _, ok := evaluatedMap[match.MatchID]; ok {
+			evaluatedMatches = append(evaluatedMatches, match)
+		}
+	}
+
+	return evaluatedMatches, nil
+}
+
 func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) error {
 	var ticketIDsToRelease []string
 	defer func() {
@@ -183,6 +217,7 @@ func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matches []*entity.Mat
 			unmatchedTicketIDs = append(unmatchedTicketIDs, ticket.ID)
 		}
 	}
+
 	return unmatchedTicketIDs
 }
 
