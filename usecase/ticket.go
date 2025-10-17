@@ -11,6 +11,7 @@ import (
 
 type TicketUsecase interface {
 	CreateTicket(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) (*entity.Ticket, error)
+	DeleteTicket(ctx context.Context, ticketID string) error
 }
 
 type ticketUsecase struct {
@@ -38,4 +39,8 @@ func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.S
 	}
 
 	return ticket, nil
+}
+
+func (u *ticketUsecase) DeleteTicket(ctx context.Context, ticketID string) error {
+	return u.ticketRepository.DeleteTicket(ctx, ticketID)
 }

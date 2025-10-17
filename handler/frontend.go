@@ -43,7 +43,14 @@ func (h Frontend) CreateTicket(ctx context.Context, req *pb.CreateTicketRequest)
 	}, nil
 }
 
-func (Frontend) DeleteTicket(context.Context, *pb.DeleteTicketRequest) (*emptypb.Empty, error) {
+func (h Frontend) DeleteTicket(ctx context.Context, req *pb.DeleteTicketRequest) (*emptypb.Empty, error) {
+	id := req.GetTicketId()
+
+	err := h.ticketUsecase.DeleteTicket(ctx, id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete ticket: %v", err)
+	}
+
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTicket not implemented")
 }
 
