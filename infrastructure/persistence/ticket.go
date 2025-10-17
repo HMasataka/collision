@@ -47,7 +47,7 @@ func (r *ticketRepository) allTicketKey() string {
 }
 
 func (r *ticketRepository) pendingTicketKey() string {
-	return "proposed_ticket_ids"
+	return "proposedTicketIDs"
 }
 
 func (r *ticketRepository) fetchTicketsLock() string {
@@ -393,4 +393,25 @@ func difference(a, b []string) []string {
 		}
 	}
 	return diff
+}
+
+func (r *ticketRepository) DeleteTicket(ctx context.Context, ticketID string) error {
+	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
+	if err != nil {
+		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+	}
+	defer unlock()
+
+	queries := []rueidis.Completed{
+		r.client.B().Del().Key(r.ticketDataKey(ticketID)).Build(),
+		r.client.B().Srem().Key(r.allTicketKey()).Member(ticketID).Build(),
+		r.client.B().Zrem().Key(r.pendingTicketKey()).Member(ticketID).Build(),
+	}
+	for _, resp := range r.client.DoMulti(lockedCtx, queries...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to delete ticket: %w", err)
+		}
+	}
+
+	return nil
 }
