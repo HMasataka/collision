@@ -28,13 +28,13 @@ func NewMatchUsecase(
 	matchFunctions map[*entity.MatchProfile]entity.MatchFunction,
 	assigner entity.Assigner,
 	evaluator entity.Evaluator,
-	ticketRepository repository.TicketRepository,
+	repositoryContainer *repository.RepositoryContainer,
 ) MatchUsecase {
 	return &matchUsecase{
 		mutex:            sync.RWMutex{},
 		matchFunctions:   matchFunctions,
 		assigner:         assigner,
-		ticketRepository: ticketRepository,
+		ticketRepository: repositoryContainer.TicketRepository,
 		evaluator:        evaluator,
 	}
 }

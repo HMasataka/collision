@@ -20,10 +20,10 @@ type assignUsecase struct {
 }
 
 func NewAssignUsecase(
-	ticketRepository repository.TicketRepository,
+	repositoryContainer *repository.RepositoryContainer,
 ) AssignUsecase {
 	return &assignUsecase{
-		ticketRepository: ticketRepository,
+		ticketRepository: repositoryContainer.TicketRepository,
 	}
 }
 

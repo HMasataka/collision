@@ -19,10 +19,10 @@ type ticketUsecase struct {
 }
 
 func NewTicketUsecase(
-	ticketRepository repository.TicketRepository,
+	repositoryContainer *repository.RepositoryContainer,
 ) TicketUsecase {
 	return &ticketUsecase{
-		ticketRepository: ticketRepository,
+		ticketRepository: repositoryContainer.TicketRepository,
 	}
 }
 

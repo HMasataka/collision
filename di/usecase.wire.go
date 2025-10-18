@@ -22,7 +22,7 @@ func InitializeUseCase(
 	wire.Build(
 		infrastructure.NewClient,
 		infrastructure.NewLocker,
-		persistence.NewTicketRepository,
+		persistence.NewRepositoryOnce,
 		usecase.NewUseCaseOnce,
 	)
 
