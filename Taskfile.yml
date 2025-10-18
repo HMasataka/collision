@@ -114,3 +114,9 @@ tasks:
       - "api/*.proto"
     generates:
       - "gen/pb/*.go"
+
+  di:
+    cmds:
+      - docker compose run wire
+    desc: Generate dependency injection
+    silent: true

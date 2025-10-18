@@ -15,16 +15,16 @@ var clientOption = rueidis.ClientOption{
 	DisableCache: true,
 }
 
-func NewClient() (rueidis.Client, error) {
+func NewClient() rueidis.Client {
 	client, err := rueidis.NewClient(clientOption)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return client, nil
+	return client
 }
 
-func NewLocker() (rueidislock.Locker, error) {
+func NewLocker() rueidislock.Locker {
 	locker, err := rueidislock.NewLocker(
 		rueidislock.LockerOption{
 			ClientOption:   clientOption,
@@ -33,8 +33,8 @@ func NewLocker() (rueidislock.Locker, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return locker, nil
+	return locker
 }

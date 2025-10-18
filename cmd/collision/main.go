@@ -6,11 +6,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/HMasataka/collision/di"
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/gen/pb"
 	"github.com/HMasataka/collision/handler"
-	"github.com/HMasataka/collision/infrastructure"
-	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
 	"google.golang.org/grpc"
 )
@@ -36,53 +35,30 @@ var matchProfile = &entity.MatchProfile{
 	},
 }
 
-func di() (usecase.MatchUsecase, usecase.TicketUsecase, usecase.AssignUsecase, error) {
-	redisClient, err := infrastructure.NewClient()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	redisLocker, err := infrastructure.NewLocker()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	ticketRepository := persistence.NewTicketRepository(redisClient, redisLocker)
-
-	matchFunctions := map[*entity.MatchProfile]entity.MatchFunction{
-		matchProfile: usecase.NewSimple1vs1MatchFunction(),
-	}
-
-	assigner := usecase.NewRandomAssigner()
-
-	matchUsecase := usecase.NewMatchUsecase(matchFunctions, assigner, nil, ticketRepository)
-	ticketUsecase := usecase.NewTicketUsecase(ticketRepository)
-	assignUsecase := usecase.NewAssignUsecase(ticketRepository)
-
-	return matchUsecase, ticketUsecase, assignUsecase, nil
-}
-
 func main() {
 	listener, err := getListener()
 	if err != nil {
 		panic(err)
 	}
 
-	matchUsecase, ticketUsecase, assignUsecase, err := di()
-	if err != nil {
-		panic(err)
+	assigner := usecase.NewRandomAssigner()
+
+	matchFunctions := map[*entity.MatchProfile]entity.MatchFunction{
+		matchProfile: usecase.NewSimple1vs1MatchFunction(),
 	}
+
+	u := di.InitializeUseCase(context.Background(), matchFunctions, assigner, nil)
 
 	go func() {
 		ctx := context.Background()
-		if err := startMatchLoop(ctx, matchUsecase); err != nil {
+		if err := startMatchLoop(ctx, u.MatchUsecase); err != nil {
 			panic(err)
 		}
 	}()
 
 	grpcServer := grpc.NewServer()
 
-	frontendHandler := handler.NewFrontend(ticketUsecase, assignUsecase)
+	frontendHandler := handler.NewFrontend(u.TicketUsecase, u.AssignUsecase)
 	pb.RegisterFrontendServiceServer(grpcServer, frontendHandler)
 
 	if err := grpcServer.Serve(listener); err != nil {
