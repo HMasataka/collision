@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislock"
@@ -11,6 +14,7 @@ import (
 
 type TicketService interface {
 	GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error)
+	Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) error
 	DeleteTicket(ctx context.Context, ticketID string) error
 	DeleteIndexTickets(ctx context.Context, ticketIDs []string) error
 }
@@ -88,6 +92,33 @@ func difference(a, b []string) []string {
 		}
 	}
 	return diff
+}
+
+func (s *ticketService) Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) error {
+	data, err := json.Marshal(target)
+	if err != nil {
+		return err
+	}
+
+	queries := []rueidis.Completed{
+		s.client.B().Set().
+			Key(s.ticketRepository.TicketDataKey(target.ID)).
+			Value(rueidis.BinaryString(data)).
+			Ex(ttl).
+			Build(),
+		s.client.B().Sadd().
+			Key(s.ticketIDRepository.TicketIDKey()).
+			Member(target.ID).
+			Build(),
+	}
+
+	for _, resp := range s.client.DoMulti(ctx, queries...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to create ticket: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []string) error {

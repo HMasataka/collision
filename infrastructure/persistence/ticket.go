@@ -36,10 +36,6 @@ func (r *ticketRepository) ticketIDFromRedisKey(key string) string {
 	return key
 }
 
-func (r *ticketRepository) allTicketKey() string {
-	return "alltickets"
-}
-
 func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, error) {
 	keys := make([]string, len(ticketIDs))
 	for i, ticketID := range ticketIDs {
@@ -78,33 +74,6 @@ func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) (
 	}
 
 	return tickets, ticketIDsNotFound, nil
-}
-
-func (r *ticketRepository) Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) error {
-	data, err := json.Marshal(target)
-	if err != nil {
-		return err
-	}
-
-	queries := []rueidis.Completed{
-		r.client.B().Set().
-			Key(r.TicketDataKey(target.ID)).
-			Value(rueidis.BinaryString(data)).
-			Ex(ttl).
-			Build(),
-		r.client.B().Sadd().
-			Key(r.allTicketKey()).
-			Member(target.ID).
-			Build(),
-	}
-
-	for _, resp := range r.client.DoMulti(ctx, queries...) {
-		if err := resp.Error(); err != nil {
-			return fmt.Errorf("failed to create ticket: %w", err)
-		}
-	}
-
-	return nil
 }
 
 func (r *ticketRepository) Find(ctx context.Context, id string) (*entity.Ticket, error) {

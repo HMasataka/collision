@@ -44,7 +44,7 @@ func newContainer(
 ) *UseCaseContainer {
 	return &UseCaseContainer{
 		MatchUsecase:  NewMatchUsecase(matchFunctions, assigner, evaluator, repositoryContainer, ticketService, assignerService),
-		TicketUsecase: NewTicketUsecase(repositoryContainer, ticketService),
+		TicketUsecase: NewTicketUsecase(ticketService),
 		AssignUsecase: NewAssignUsecase(assignerService),
 	}
 }

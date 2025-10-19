@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
-	"github.com/HMasataka/collision/domain/repository"
 	"github.com/HMasataka/collision/domain/service"
 	"github.com/rs/xid"
 )
@@ -16,17 +15,14 @@ type TicketUsecase interface {
 }
 
 type ticketUsecase struct {
-	ticketRepository repository.TicketRepository
-	ticketService    service.TicketService
+	ticketService service.TicketService
 }
 
 func NewTicketUsecase(
-	repositoryContainer *repository.RepositoryContainer,
 	ticketService service.TicketService,
 ) TicketUsecase {
 	return &ticketUsecase{
-		ticketRepository: repositoryContainer.TicketRepository,
-		ticketService:    ticketService,
+		ticketService: ticketService,
 	}
 }
 
@@ -38,7 +34,7 @@ func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.S
 		SearchFields: searchFields,
 	}
 
-	if err := u.ticketRepository.Insert(ctx, ticket, 10*time.Minute); err != nil {
+	if err := u.ticketService.Insert(ctx, ticket, 10*time.Minute); err != nil {
 		return nil, err
 	}
 
