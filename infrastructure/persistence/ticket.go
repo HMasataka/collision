@@ -16,7 +16,6 @@ const (
 )
 
 type ticketRepository struct {
-	// NOTE 全体で共通の実態を持つ
 	client rueidis.Client
 }
 
