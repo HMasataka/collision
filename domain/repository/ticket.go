@@ -8,8 +8,6 @@ import (
 )
 
 type TicketRepository interface {
-	GetPendingTicketIDs(ctx context.Context) ([]string, error)
-	InsertPendingTicket(ctx context.Context, ticketIDs []string) error
 	GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, error)
 	Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) error
 	Find(ctx context.Context, id string) (*entity.Ticket, error)
@@ -18,6 +16,5 @@ type TicketRepository interface {
 
 	GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, error)
 	AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, error)
-	ReleaseTickets(ctx context.Context, ticketIDs []string) error
 	DeleteIndexTickets(ctx context.Context, ticketIDs []string) error
 }

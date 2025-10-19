@@ -22,8 +22,9 @@ type matchUsecase struct {
 	assigner  entity.Assigner
 	evaluator entity.Evaluator
 
-	ticketRepository repository.TicketRepository
-	ticketService    service.TicketService
+	ticketRepository        repository.TicketRepository
+	pendingTicketRepository repository.PendingTicketRepository
+	ticketService           service.TicketService
 }
 
 func NewMatchUsecase(
@@ -34,12 +35,13 @@ func NewMatchUsecase(
 	ticketService service.TicketService,
 ) MatchUsecase {
 	return &matchUsecase{
-		mutex:            sync.RWMutex{},
-		matchFunctions:   matchFunctions,
-		assigner:         assigner,
-		evaluator:        evaluator,
-		ticketRepository: repositoryContainer.TicketRepository,
-		ticketService:    ticketService,
+		mutex:                   sync.RWMutex{},
+		matchFunctions:          matchFunctions,
+		assigner:                assigner,
+		evaluator:               evaluator,
+		ticketRepository:        repositoryContainer.TicketRepository,
+		pendingTicketRepository: repositoryContainer.PendingTicketRepository,
+		ticketService:           ticketService,
 	}
 }
 
@@ -65,7 +67,7 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 
 	unmatchedTicketIDs := filterUnmatchedTicketIDs(activeTickets, matches)
 	if len(unmatchedTicketIDs) > 0 {
-		if err := u.ticketRepository.ReleaseTickets(ctx, unmatchedTicketIDs); err != nil {
+		if err := u.pendingTicketRepository.ReleaseTickets(ctx, unmatchedTicketIDs); err != nil {
 			return fmt.Errorf("failed to release unmatched tickets: %w", err)
 		}
 	}
@@ -188,7 +190,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) erro
 	var ticketIDsToRelease []string
 	defer func() {
 		if len(ticketIDsToRelease) > 0 {
-			_ = u.ticketRepository.ReleaseTickets(ctx, ticketIDsToRelease)
+			_ = u.pendingTicketRepository.ReleaseTickets(ctx, ticketIDsToRelease)
 		}
 	}()
 

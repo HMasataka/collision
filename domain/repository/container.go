@@ -1,6 +1,7 @@
 package repository
 
 type RepositoryContainer struct {
-	TicketRepository   TicketRepository
-	TicketIDRepository TicketIDRepository
+	TicketRepository        TicketRepository
+	TicketIDRepository      TicketIDRepository
+	PendingTicketRepository PendingTicketRepository
 }

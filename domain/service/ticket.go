@@ -18,6 +18,7 @@ type ticketService struct {
 	locker             rueidislock.Locker
 	ticketRepository   repository.TicketRepository
 	ticketIDRepository repository.TicketIDRepository
+	pendingRepository  repository.PendingTicketRepository
 }
 
 func NewTicketService(
@@ -30,6 +31,7 @@ func NewTicketService(
 		locker:             locker,
 		ticketRepository:   repositoryContainer.TicketRepository,
 		ticketIDRepository: repositoryContainer.TicketIDRepository,
+		pendingRepository:  repositoryContainer.PendingTicketRepository,
 	}
 }
 
@@ -53,7 +55,7 @@ func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]
 		return nil, nil
 	}
 
-	pendingTicketIDs, err := s.ticketRepository.GetPendingTicketIDs(lockedCtx)
+	pendingTicketIDs, err := s.pendingRepository.GetPendingTicketIDs(lockedCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pending ticket IDs: %w", err)
 	}
@@ -63,7 +65,7 @@ func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]
 		return nil, nil
 	}
 
-	if err := s.ticketRepository.InsertPendingTicket(lockedCtx, activeTicketIDs); err != nil {
+	if err := s.pendingRepository.InsertPendingTicket(lockedCtx, activeTicketIDs); err != nil {
 		return nil, fmt.Errorf("failed to set tickets to pending: %w", err)
 	}
 

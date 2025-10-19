@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
@@ -77,44 +76,6 @@ func (r *ticketRepository) GetAllTicketIDs(ctx context.Context, limit int64) ([]
 	}
 
 	return allTicketIDs, nil
-}
-
-func (r *ticketRepository) GetPendingTicketIDs(ctx context.Context) ([]string, error) {
-	rangeMin := strconv.FormatInt(time.Now().Add(-defaultPendingReleaseTimeout).Unix(), 10)
-	rangeMax := strconv.FormatInt(time.Now().Add(1*time.Hour).Unix(), 10)
-
-	query := r.client.B().Zrangebyscore().Key(r.pendingTicketKey()).Min(rangeMin).Max(rangeMax).Build()
-
-	resp := r.client.Do(ctx, query)
-	if err := resp.Error(); err != nil {
-		if rueidis.IsRedisNil(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get pending ticket index: %w", err)
-	}
-
-	pendingTicketIDs, err := resp.AsStrSlice()
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode pending ticket index as str slice: %w", err)
-	}
-
-	return pendingTicketIDs, nil
-}
-
-func (r *ticketRepository) InsertPendingTicket(ctx context.Context, ticketIDs []string) error {
-	score := float64(time.Now().Unix())
-
-	query := r.client.B().Zadd().Key(r.pendingTicketKey()).ScoreMember()
-	for _, ticketID := range ticketIDs {
-		query = query.ScoreMember(score, ticketID)
-	}
-
-	resp := r.client.Do(ctx, query.Build())
-	if err := resp.Error(); err != nil {
-		return fmt.Errorf("failed to set tickets to pending state: %w", err)
-	}
-
-	return nil
 }
 
 func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, error) {
@@ -203,23 +164,6 @@ func (r *ticketRepository) Delete(ctx context.Context, target *entity.Ticket) er
 	query := r.client.B().Del().Key(r.ticketDataKey(target.ID)).Build()
 	if err := r.client.Do(ctx, query).Error(); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (r *ticketRepository) ReleaseTickets(ctx context.Context, ticketIDs []string) error {
-	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
-	if err != nil {
-		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
-	}
-	defer unlock()
-
-	query := r.client.B().Zrem().Key(r.pendingTicketKey()).Member(ticketIDs...).Build()
-
-	resp := r.client.Do(lockedCtx, query)
-	if err := resp.Error(); err != nil {
-		return fmt.Errorf("failed to release tickets: %w", err)
 	}
 
 	return nil
