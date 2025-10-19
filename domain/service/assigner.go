@@ -8,6 +8,7 @@ import (
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/errs"
 	"github.com/redis/rueidis"
 )
 
@@ -16,8 +17,8 @@ const (
 )
 
 type AssignerService interface {
-	GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, error)
-	AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, error)
+	GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, *errs.Error)
+	AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, *errs.Error)
 }
 
 type assignerService struct {
@@ -46,7 +47,7 @@ func (s *assignerService) assignmentData(ticketID string) string {
 	return fmt.Sprintf("assign:%s", ticketID)
 }
 
-func (s *assignerService) GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, error) {
+func (s *assignerService) GetAssignment(ctx context.Context, ticketID string) (*entity.Assignment, *errs.Error) {
 	query := s.client.B().Get().Key(s.assignmentData(ticketID)).Build()
 
 	resp := s.client.Do(ctx, query)
@@ -54,23 +55,23 @@ func (s *assignerService) GetAssignment(ctx context.Context, ticketID string) (*
 		if rueidis.IsRedisNil(err) {
 			return nil, entity.ErrAssignmentNotFound
 		}
-		return nil, fmt.Errorf("failed to get assignemnt: %w", err)
+		return nil, entity.ErrAssignmentGetFailed.WithCause(err)
 	}
 
 	data, err := resp.AsBytes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get assignment as bytes: %w", err)
+		return nil, entity.ErrAssignmentGetFailed.WithCause(err)
 	}
 
 	var as entity.Assignment
 	if err := json.Unmarshal(data, &as); err != nil {
-		return nil, fmt.Errorf("failed to decode assignment: %w", err)
+		return nil, entity.ErrAssignmentDecodeFailed.WithCause(err)
 	}
 
 	return &as, nil
 }
 
-func (s *assignerService) AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, error) {
+func (s *assignerService) AssignTickets(ctx context.Context, asgs []*entity.AssignmentGroup) ([]string, *errs.Error) {
 	var assignedTicketIDs, notAssignedTicketIDs []string
 	for _, asg := range asgs {
 		if len(asg.TicketIds) == 0 {
@@ -88,7 +89,7 @@ func (s *assignerService) AssignTickets(ctx context.Context, asgs []*entity.Assi
 	if len(assignedTicketIDs) > 0 {
 		// de-index assigned tickets
 		if err := s.ticketService.DeleteIndexTickets(ctx, assignedTicketIDs); err != nil {
-			return notAssignedTicketIDs, fmt.Errorf("failed to deindex assigned tickets: %w", err)
+			return notAssignedTicketIDs, entity.ErrTicketDeindexFailed.WithCause(err)
 		}
 
 		if err := s.setTicketsExpiration(ctx, assignedTicketIDs, defaultAssignedDeleteTimeout); err != nil {
@@ -99,12 +100,12 @@ func (s *assignerService) AssignTickets(ctx context.Context, asgs []*entity.Assi
 	return notAssignedTicketIDs, nil
 }
 
-func (s *assignerService) setAssignmentToTickets(ctx context.Context, redis rueidis.Client, ticketIDs []string, assignment *entity.Assignment) error {
+func (s *assignerService) setAssignmentToTickets(ctx context.Context, redis rueidis.Client, ticketIDs []string, assignment *entity.Assignment) *errs.Error {
 	queries := make([]rueidis.Completed, len(ticketIDs))
 	for i, ticketID := range ticketIDs {
 		data, err := json.Marshal(assignment)
 		if err != nil {
-			return fmt.Errorf("failed to encode assignemnt: %w", err)
+			return entity.ErrAssignmentEncodeFailed.WithCause(err)
 		}
 
 		queries[i] = redis.B().Set().
@@ -115,14 +116,14 @@ func (s *assignerService) setAssignmentToTickets(ctx context.Context, redis ruei
 
 	for _, resp := range redis.DoMulti(ctx, queries...) {
 		if err := resp.Error(); err != nil {
-			return fmt.Errorf("failed to set assignemnt data to redis: %w", err)
+			return entity.ErrAssignmentSetFailed.WithCause(err)
 		}
 	}
 
 	return nil
 }
 
-func (s *assignerService) setTicketsExpiration(ctx context.Context, ticketIDs []string, expiration time.Duration) error {
+func (s *assignerService) setTicketsExpiration(ctx context.Context, ticketIDs []string, expiration time.Duration) *errs.Error {
 	queries := make([]rueidis.Completed, len(ticketIDs))
 
 	for i, ticketID := range ticketIDs {
@@ -131,7 +132,7 @@ func (s *assignerService) setTicketsExpiration(ctx context.Context, ticketIDs []
 
 	for _, resp := range s.client.DoMulti(ctx, queries...) {
 		if err := resp.Error(); err != nil {
-			return fmt.Errorf("failed to set expiration to tickets: %w", err)
+			return entity.ErrTicketExpirationFailed.WithCause(err)
 		}
 	}
 

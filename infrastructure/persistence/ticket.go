@@ -3,11 +3,11 @@ package persistence
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/errs"
 	"github.com/redis/rueidis"
 )
 
@@ -35,7 +35,7 @@ func (r *ticketRepository) ticketIDFromRedisKey(key string) string {
 	return key
 }
 
-func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, error) {
+func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, *errs.Error) {
 	keys := make([]string, len(ticketIDs))
 	for i, ticketID := range ticketIDs {
 		keys[i] = r.TicketDataKey(ticketID)
@@ -43,7 +43,7 @@ func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) (
 
 	m, err := rueidis.MGet(r.client, ctx, keys)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to mget tickets: %w", err)
+		return nil, nil, entity.ErrTicketGetFailed.WithCause(err)
 	}
 
 	tickets := make([]*entity.Ticket, 0, len(keys))
@@ -55,18 +55,18 @@ func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) (
 				ticketIDsNotFound = append(ticketIDsNotFound, r.ticketIDFromRedisKey(key))
 				continue
 			}
-			return nil, nil, fmt.Errorf("failed to get tickets: %w", err)
+			return nil, nil, entity.ErrTicketGetFailed.WithCause(err)
 		}
 
 		data, err := resp.AsBytes()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to decode ticket as bytes: %w", err)
+			return nil, nil, entity.ErrTicketGetFailed.WithCause(err)
 		}
 
 		var ticket entity.Ticket
 
 		if err := json.Unmarshal(data, &ticket); err != nil {
-			return nil, nil, fmt.Errorf("failed to decode ticket: %w", err)
+			return nil, nil, entity.ErrTicketUnmarshalFailed.WithCause(err)
 		}
 
 		tickets = append(tickets, &ticket)
@@ -75,25 +75,25 @@ func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) (
 	return tickets, ticketIDsNotFound, nil
 }
 
-func (r *ticketRepository) Find(ctx context.Context, id string) (*entity.Ticket, error) {
+func (r *ticketRepository) Find(ctx context.Context, id string) (*entity.Ticket, *errs.Error) {
 	query := r.client.B().Get().Key(r.TicketDataKey(id)).Build()
 	data, err := r.client.Do(ctx, query).AsBytes()
 	if err != nil {
-		return nil, err
+		return nil, entity.ErrTicketGetFailed.WithCause(err)
 	}
 
 	var ticket entity.Ticket
 	if err := json.Unmarshal(data, &ticket); err != nil {
-		return nil, err
+		return nil, entity.ErrTicketUnmarshalFailed.WithCause(err)
 	}
 
 	return &ticket, nil
 }
 
-func (r *ticketRepository) Delete(ctx context.Context, target *entity.Ticket) error {
+func (r *ticketRepository) Delete(ctx context.Context, target *entity.Ticket) *errs.Error {
 	query := r.client.B().Del().Key(r.TicketDataKey(target.ID)).Build()
 	if err := r.client.Do(ctx, query).Error(); err != nil {
-		return err
+		return entity.ErrTicketDeleteFailed.WithCause(err)
 	}
 
 	return nil

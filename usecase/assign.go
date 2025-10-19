@@ -8,11 +8,12 @@ import (
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/service"
+	"github.com/HMasataka/errs"
 	"github.com/sethvargo/go-retry"
 )
 
 type AssignUsecase interface {
-	Watch(ctx context.Context, ticketID string, onAssignmentChanged func(*entity.Assignment) error) error
+	Watch(ctx context.Context, ticketID string, onAssignmentChanged func(*entity.Assignment) error) *errs.Error
 }
 
 type assignUsecase struct {
@@ -31,7 +32,7 @@ const (
 	watchAssignmentInterval = 100 * time.Millisecond
 )
 
-func (u *assignUsecase) Watch(ctx context.Context, ticketID string, onAssignmentChanged func(*entity.Assignment) error) error {
+func (u *assignUsecase) Watch(ctx context.Context, ticketID string, onAssignmentChanged func(*entity.Assignment) error) *errs.Error {
 	var prev *entity.Assignment
 
 	backoff := newWatchAssignmentBackoff()
@@ -52,9 +53,9 @@ func (u *assignUsecase) Watch(ctx context.Context, ticketID string, onAssignment
 			}
 		}
 
-		return retry.RetryableError(errors.New("assignment unchanged"))
+		return retry.RetryableError(errs.New("assignment unchanged"))
 	}); err != nil {
-		return err
+		return entity.ErrAssignmentWatchFailed.WithCause(err)
 	}
 	return nil
 }

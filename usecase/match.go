@@ -2,17 +2,17 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/HMasataka/collision/domain/service"
+	"github.com/HMasataka/errs"
 	"golang.org/x/sync/errgroup"
 )
 
 type MatchUsecase interface {
-	Exec(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) error
+	Exec(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) *errs.Error
 }
 
 type matchUsecase struct {
@@ -48,7 +48,7 @@ func NewMatchUsecase(
 	}
 }
 
-func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) error {
+func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) *errs.Error {
 	activeTickets, err := u.fetchActiveTickets(ctx, 10000)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 	unmatchedTicketIDs := filterUnmatchedTicketIDs(activeTickets, matches)
 	if len(unmatchedTicketIDs) > 0 {
 		if err := u.pendingTicketRepository.ReleaseTickets(ctx, unmatchedTicketIDs); err != nil {
-			return fmt.Errorf("failed to release unmatched tickets: %w", err)
+			return entity.ErrPendingTicketReleaseFailed.WithCause(err)
 		}
 	}
 
@@ -85,10 +85,10 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 
 }
 
-func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*entity.Ticket, error) {
+func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*entity.Ticket, *errs.Error) {
 	activeTicketIDs, err := u.ticketService.GetActiveTicketIDs(ctx, limit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch active ticket IDs: %w", err)
+		return nil, entity.ErrIndexGetFailed.WithCause(err)
 	}
 	if len(activeTicketIDs) == 0 {
 		return nil, nil
@@ -96,19 +96,19 @@ func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*
 
 	tickets, deletedTicketIDs, err := u.ticketRepository.GetTickets(ctx, activeTicketIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch active tickets: %w", err)
+		return nil, entity.ErrTicketGetFailed.WithCause(err)
 	}
 
 	if len(deletedTicketIDs) > 0 {
 		if err := u.ticketService.DeleteIndexTickets(ctx, deletedTicketIDs); err != nil {
-			return nil, fmt.Errorf("failed to delete index tickets: %w", err)
+			return nil, entity.ErrIndexDeleteFailed.WithCause(err)
 		}
 	}
 
 	return tickets, nil
 }
 
-func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) ([]*entity.Match, error) {
+func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) ([]*entity.Match, *errs.Error) {
 	u.mutex.RLock()
 	mmfs := u.matchFunctions
 	u.mutex.RUnlock()
@@ -134,7 +134,7 @@ func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, entity.ErrMatchExecutionFailed.WithCause(err)
 	}
 
 	close(resCh)
@@ -163,7 +163,7 @@ func filterTickets(profile *entity.MatchProfile, tickets []*entity.Ticket) (map[
 	return poolTickets, nil
 }
 
-func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Match) ([]*entity.Match, error) {
+func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Match) ([]*entity.Match, *errs.Error) {
 	if u.evaluator == nil {
 		return matches, nil
 	}
@@ -172,7 +172,7 @@ func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Ma
 
 	evaluatedMatchIDs, err := u.evaluator.Evaluate(ctx, matches)
 	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate matches: %w", err)
+		return nil, entity.ErrMatchEvaluationFailed.WithCause(err)
 	}
 
 	evaluatedMap := map[string]struct{}{}
@@ -189,7 +189,7 @@ func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Ma
 	return evaluatedMatches, nil
 }
 
-func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) error {
+func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) *errs.Error {
 	var ticketIDsToRelease []string
 	defer func() {
 		if len(ticketIDsToRelease) > 0 {
@@ -200,13 +200,13 @@ func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) erro
 	asgs, err := u.assigner.Assign(ctx, matches)
 	if err != nil {
 		ticketIDsToRelease = append(ticketIDsToRelease, ticketIDsFromMatches(matches)...)
-		return fmt.Errorf("failed to assign matches: %w", err)
+		return entity.ErrMatchAssignFailed.WithCause(err)
 	}
 	if len(asgs) > 0 {
 		notAssigned, err := u.assignerService.AssignTickets(ctx, asgs)
 		ticketIDsToRelease = append(ticketIDsToRelease, notAssigned...)
 		if err != nil {
-			return fmt.Errorf("failed to assign tickets: %w", err)
+			return entity.ErrMatchAssignFailed.WithCause(err)
 		}
 	}
 	return nil

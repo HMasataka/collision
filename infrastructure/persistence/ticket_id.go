@@ -2,9 +2,10 @@ package persistence
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/errs"
 	"github.com/redis/rueidis"
 )
 
@@ -24,7 +25,7 @@ func (r *ticketIDRepository) TicketIDKey() string {
 	return "ticket:ids"
 }
 
-func (r *ticketIDRepository) GetAllTicketIDs(ctx context.Context, limit int64) ([]string, error) {
+func (r *ticketIDRepository) GetAllTicketIDs(ctx context.Context, limit int64) ([]string, *errs.Error) {
 	query := r.client.B().Srandmember().Key(r.TicketIDKey()).Count(limit).Build()
 
 	resp := r.client.Do(ctx, query)
@@ -33,12 +34,12 @@ func (r *ticketIDRepository) GetAllTicketIDs(ctx context.Context, limit int64) (
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("failed to get all tickets index: %w", err)
+		return nil, entity.ErrIndexGetFailed.WithCause(err)
 	}
 
 	allTicketIDs, err := resp.AsStrSlice()
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode all tickets index as str slice: %w", err)
+		return nil, entity.ErrIndexDecodeFailed.WithCause(err)
 	}
 
 	return allTicketIDs, nil

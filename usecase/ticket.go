@@ -6,12 +6,13 @@ import (
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/service"
+	"github.com/HMasataka/errs"
 	"github.com/rs/xid"
 )
 
 type TicketUsecase interface {
-	CreateTicket(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) (*entity.Ticket, error)
-	DeleteTicket(ctx context.Context, ticketID string) error
+	CreateTicket(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) (*entity.Ticket, *errs.Error)
+	DeleteTicket(ctx context.Context, ticketID string) *errs.Error
 }
 
 type ticketUsecase struct {
@@ -26,7 +27,7 @@ func NewTicketUsecase(
 	}
 }
 
-func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) (*entity.Ticket, error) {
+func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.SearchFields, extensions []byte) (*entity.Ticket, *errs.Error) {
 	id := xid.New().String()
 
 	ticket := &entity.Ticket{
@@ -41,6 +42,6 @@ func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.S
 	return ticket, nil
 }
 
-func (u *ticketUsecase) DeleteTicket(ctx context.Context, ticketID string) error {
+func (u *ticketUsecase) DeleteTicket(ctx context.Context, ticketID string) *errs.Error {
 	return u.ticketService.DeleteTicket(ctx, ticketID)
 }

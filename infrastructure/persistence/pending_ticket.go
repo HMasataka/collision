@@ -2,12 +2,13 @@ package persistence
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/HMasataka/collision/domain/driver"
+	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/errs"
 	"github.com/redis/rueidis"
 )
 
@@ -30,7 +31,7 @@ func (r *pendingTicketRepository) PendingTicketKey() string {
 	return "pendingTicketIDs"
 }
 
-func (r *pendingTicketRepository) GetPendingTicketIDs(ctx context.Context) ([]string, error) {
+func (r *pendingTicketRepository) GetPendingTicketIDs(ctx context.Context) ([]string, *errs.Error) {
 	rangeMin := strconv.FormatInt(time.Now().Add(-defaultPendingReleaseTimeout).Unix(), 10)
 	rangeMax := strconv.FormatInt(time.Now().Add(1*time.Hour).Unix(), 10)
 
@@ -41,18 +42,18 @@ func (r *pendingTicketRepository) GetPendingTicketIDs(ctx context.Context) ([]st
 		if rueidis.IsRedisNil(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get pending ticket index: %w", err)
+		return nil, entity.ErrPendingTicketGetFailed.WithCause(err)
 	}
 
 	pendingTicketIDs, err := resp.AsStrSlice()
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode pending ticket index as str slice: %w", err)
+		return nil, entity.ErrIndexDecodeFailed.WithCause(err)
 	}
 
 	return pendingTicketIDs, nil
 }
 
-func (r *pendingTicketRepository) InsertPendingTicket(ctx context.Context, ticketIDs []string) error {
+func (r *pendingTicketRepository) InsertPendingTicket(ctx context.Context, ticketIDs []string) *errs.Error {
 	score := float64(time.Now().Unix())
 
 	query := r.client.B().Zadd().Key(r.PendingTicketKey()).ScoreMember()
@@ -62,16 +63,16 @@ func (r *pendingTicketRepository) InsertPendingTicket(ctx context.Context, ticke
 
 	resp := r.client.Do(ctx, query.Build())
 	if err := resp.Error(); err != nil {
-		return fmt.Errorf("failed to set tickets to pending state: %w", err)
+		return entity.ErrPendingTicketSetFailed.WithCause(err)
 	}
 
 	return nil
 }
 
-func (r *pendingTicketRepository) ReleaseTickets(ctx context.Context, ticketIDs []string) error {
+func (r *pendingTicketRepository) ReleaseTickets(ctx context.Context, ticketIDs []string) *errs.Error {
 	lockedCtx, unlock, err := r.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+		return entity.ErrLockAcquisitionFailed.WithCause(err)
 	}
 	defer unlock()
 
@@ -79,7 +80,7 @@ func (r *pendingTicketRepository) ReleaseTickets(ctx context.Context, ticketIDs 
 
 	resp := r.client.Do(lockedCtx, query)
 	if err := resp.Error(); err != nil {
-		return fmt.Errorf("failed to release tickets: %w", err)
+		return entity.ErrPendingTicketReleaseFailed.WithCause(err)
 	}
 
 	return nil

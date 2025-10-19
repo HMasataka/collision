@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/gen/pb"
+	"github.com/HMasataka/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -27,7 +29,7 @@ func getConnection() (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func createTicket(ctx context.Context, client pb.FrontendServiceClient, playerID string) (string, error) {
+func createTicket(ctx context.Context, client pb.FrontendServiceClient, playerID string) (string, *errs.Error) {
 	// Create a ticket with search fields for matchmaking
 	searchFields := &pb.SearchFields{
 		StringArgs: map[string]string{
@@ -41,7 +43,7 @@ func createTicket(ctx context.Context, client pb.FrontendServiceClient, playerID
 		Extensions:   fmt.Appendf(nil, `{"player_id": "%s"}`, playerID),
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create ticket for player %s: %w", playerID, err)
+		return "", entity.ErrTicketCreateFailed.WithCause(err)
 	}
 
 	fmt.Printf("Created ticket %s for player %s\n", response.Id, playerID)

@@ -3,20 +3,20 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/HMasataka/collision/domain/driver"
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/errs"
 	"github.com/redis/rueidis"
 )
 
 type TicketService interface {
-	GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error)
-	Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) error
-	DeleteTicket(ctx context.Context, ticketID string) error
-	DeleteIndexTickets(ctx context.Context, ticketIDs []string) error
+	GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, *errs.Error)
+	Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) *errs.Error
+	DeleteTicket(ctx context.Context, ticketID string) *errs.Error
+	DeleteIndexTickets(ctx context.Context, ticketIDs []string) *errs.Error
 }
 
 type ticketService struct {
@@ -41,17 +41,17 @@ func NewTicketService(
 	}
 }
 
-func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error) {
+func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, *errs.Error) {
 	// 複数のワーカーが同時にFetchしないようにロックを取得する
 	lockedCtx, unlock, err := s.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+		return nil, err
 	}
 	defer unlock()
 
 	allTicketIDs, err := s.ticketIDRepository.GetAllTicketIDs(lockedCtx, limit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all ticket IDs: %w", err)
+		return nil, entity.ErrIndexGetFailed.WithCause(err)
 	}
 	if len(allTicketIDs) == 0 {
 		return nil, nil
@@ -59,7 +59,7 @@ func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]
 
 	pendingTicketIDs, err := s.pendingRepository.GetPendingTicketIDs(lockedCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pending ticket IDs: %w", err)
+		return nil, entity.ErrPendingTicketGetFailed.WithCause(err)
 	}
 
 	activeTicketIDs := difference(allTicketIDs, pendingTicketIDs)
@@ -68,7 +68,7 @@ func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]
 	}
 
 	if err := s.pendingRepository.InsertPendingTicket(lockedCtx, activeTicketIDs); err != nil {
-		return nil, fmt.Errorf("failed to set tickets to pending: %w", err)
+		return nil, entity.ErrPendingTicketSetFailed.WithCause(err)
 	}
 
 	return activeTicketIDs, nil
@@ -90,10 +90,10 @@ func difference(a, b []string) []string {
 	return diff
 }
 
-func (s *ticketService) Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) error {
+func (s *ticketService) Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) *errs.Error {
 	data, err := json.Marshal(target)
 	if err != nil {
-		return err
+		return entity.ErrTicketMarshalFailed.WithCause(err)
 	}
 
 	queries := []rueidis.Completed{
@@ -110,14 +110,14 @@ func (s *ticketService) Insert(ctx context.Context, target *entity.Ticket, ttl t
 
 	for _, resp := range s.client.DoMulti(ctx, queries...) {
 		if err := resp.Error(); err != nil {
-			return fmt.Errorf("failed to create ticket: %w", err)
+			return entity.ErrTicketCreateFailed.WithCause(err)
 		}
 	}
 
 	return nil
 }
 
-func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []string) error {
+func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []string) *errs.Error {
 	// Acquire locks to avoid race condition with GetActiveTicketIDs.
 	//
 	// Without locks, when the following order,
@@ -128,7 +128,7 @@ func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []stri
 	// 3. (GetActiveTicketIDs) getPendingTicketIDs
 	lockedCtx, unlock, err := s.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+		return err
 	}
 	defer unlock()
 
@@ -139,17 +139,17 @@ func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []stri
 
 	for _, resp := range s.client.DoMulti(lockedCtx, cmds...) {
 		if err := resp.Error(); err != nil {
-			return fmt.Errorf("failed to deindex tickets: %w", err)
+			return entity.ErrTicketDeindexFailed.WithCause(err)
 		}
 	}
 
 	return nil
 }
 
-func (s *ticketService) DeleteTicket(ctx context.Context, ticketID string) error {
+func (s *ticketService) DeleteTicket(ctx context.Context, ticketID string) *errs.Error {
 	lockedCtx, unlock, err := s.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+		return err
 	}
 	defer unlock()
 
@@ -160,7 +160,7 @@ func (s *ticketService) DeleteTicket(ctx context.Context, ticketID string) error
 	}
 	for _, resp := range s.client.DoMulti(lockedCtx, queries...) {
 		if err := resp.Error(); err != nil {
-			return fmt.Errorf("failed to delete ticket: %w", err)
+			return entity.ErrTicketDeleteFailed.WithCause(err)
 		}
 	}
 
