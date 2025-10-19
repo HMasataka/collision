@@ -6,34 +6,28 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/HMasataka/collision/domain/driver"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
-	"github.com/redis/rueidis/rueidislock"
 )
 
 type pendingTicketRepository struct {
-	// NOTE 全体で共通の実態を持つ
-	locker rueidislock.Locker
-	client rueidis.Client
+	client       rueidis.Client
+	lockerDriver driver.LockerDriver
 }
 
 func NewPendingTicketRepository(
 	client rueidis.Client,
-	locker rueidislock.Locker,
+	lockerDriver driver.LockerDriver,
 ) repository.PendingTicketRepository {
 	return &pendingTicketRepository{
-		client: client,
-		locker: locker,
+		client:       client,
+		lockerDriver: lockerDriver,
 	}
 }
 
 func (r *pendingTicketRepository) PendingTicketKey() string {
 	return "pendingTicketIDs"
-}
-
-// TODO 共通の処理に切り出し
-func (r *pendingTicketRepository) fetchTicketsLock() string {
-	return "fetchTicketsLock"
 }
 
 func (r *pendingTicketRepository) GetPendingTicketIDs(ctx context.Context) ([]string, error) {
@@ -75,7 +69,7 @@ func (r *pendingTicketRepository) InsertPendingTicket(ctx context.Context, ticke
 }
 
 func (r *pendingTicketRepository) ReleaseTickets(ctx context.Context, ticketIDs []string) error {
-	lockedCtx, unlock, err := r.locker.WithContext(ctx, r.fetchTicketsLock())
+	lockedCtx, unlock, err := r.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
 	}

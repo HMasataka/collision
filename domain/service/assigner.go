@@ -9,7 +9,6 @@ import (
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
-	"github.com/redis/rueidis/rueidislock"
 )
 
 const (
@@ -23,7 +22,6 @@ type AssignerService interface {
 
 type assignerService struct {
 	client             rueidis.Client
-	locker             rueidislock.Locker
 	ticketRepository   repository.TicketRepository
 	ticketIDRepository repository.TicketIDRepository
 	pendingRepository  repository.PendingTicketRepository
@@ -32,13 +30,11 @@ type assignerService struct {
 
 func NewAssignerService(
 	client rueidis.Client,
-	locker rueidislock.Locker,
 	repositoryContainer *repository.RepositoryContainer,
 	ticketService TicketService,
 ) AssignerService {
 	return &assignerService{
 		client:             client,
-		locker:             locker,
 		ticketRepository:   repositoryContainer.TicketRepository,
 		ticketIDRepository: repositoryContainer.TicketIDRepository,
 		pendingRepository:  repositoryContainer.PendingTicketRepository,

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/HMasataka/collision/domain/driver"
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
-	"github.com/redis/rueidis/rueidislock"
 )
 
 type TicketService interface {
@@ -21,7 +21,7 @@ type TicketService interface {
 
 type ticketService struct {
 	client             rueidis.Client
-	locker             rueidislock.Locker
+	lockerDriver       driver.LockerDriver
 	ticketRepository   repository.TicketRepository
 	ticketIDRepository repository.TicketIDRepository
 	pendingRepository  repository.PendingTicketRepository
@@ -29,25 +29,21 @@ type ticketService struct {
 
 func NewTicketService(
 	client rueidis.Client,
-	locker rueidislock.Locker,
+	lockerDriver driver.LockerDriver,
 	repositoryContainer *repository.RepositoryContainer,
 ) TicketService {
 	return &ticketService{
 		client:             client,
-		locker:             locker,
+		lockerDriver:       lockerDriver,
 		ticketRepository:   repositoryContainer.TicketRepository,
 		ticketIDRepository: repositoryContainer.TicketIDRepository,
 		pendingRepository:  repositoryContainer.PendingTicketRepository,
 	}
 }
 
-func (s *ticketService) fetchTicketsLock() string {
-	return "fetchTicketsLock"
-}
-
 func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error) {
 	// 複数のワーカーが同時にFetchしないようにロックを取得する
-	lockedCtx, unlock, err := s.locker.WithContext(ctx, s.fetchTicketsLock())
+	lockedCtx, unlock, err := s.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
 	}
@@ -130,7 +126,7 @@ func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []stri
 	// 1. (GetActiveTicketIDs) getAllTicketIDs
 	// 2. (deIndexTickets) ZREM and SREM from ticket index
 	// 3. (GetActiveTicketIDs) getPendingTicketIDs
-	lockedCtx, unlock, err := s.locker.WithContext(ctx, s.fetchTicketsLock())
+	lockedCtx, unlock, err := s.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
 	}
@@ -151,7 +147,7 @@ func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []stri
 }
 
 func (s *ticketService) DeleteTicket(ctx context.Context, ticketID string) error {
-	lockedCtx, unlock, err := s.locker.WithContext(ctx, s.fetchTicketsLock())
+	lockedCtx, unlock, err := s.lockerDriver.FetchTicketLock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
 	}

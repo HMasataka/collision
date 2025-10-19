@@ -11,6 +11,7 @@ import (
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/service"
 	"github.com/HMasataka/collision/infrastructure"
+	"github.com/HMasataka/collision/infrastructure/driver"
 	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
 )
@@ -20,9 +21,10 @@ import (
 func InitializeUseCase(ctx context.Context, matchFunctions map[*entity.MatchProfile]entity.MatchFunction, assigner entity.Assigner, evaluator entity.Evaluator) *usecase.UseCaseContainer {
 	client := infrastructure.NewClient()
 	locker := infrastructure.NewLocker()
-	repositoryContainer := persistence.NewRepositoryOnce(client, locker)
-	ticketService := service.NewTicketService(client, locker, repositoryContainer)
-	assignerService := service.NewAssignerService(client, locker, repositoryContainer, ticketService)
+	lockerDriver := driver.NewLockerDriver(locker)
+	repositoryContainer := persistence.NewRepositoryOnce(client, lockerDriver)
+	ticketService := service.NewTicketService(client, lockerDriver, repositoryContainer)
+	assignerService := service.NewAssignerService(client, repositoryContainer, ticketService)
 	useCaseContainer := usecase.NewUseCaseOnce(matchFunctions, assigner, evaluator, repositoryContainer, ticketService, assignerService)
 	return useCaseContainer
 }

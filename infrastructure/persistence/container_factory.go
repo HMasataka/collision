@@ -3,9 +3,9 @@ package persistence
 import (
 	"sync"
 
+	"github.com/HMasataka/collision/domain/driver"
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
-	"github.com/redis/rueidis/rueidislock"
 )
 
 var (
@@ -15,10 +15,10 @@ var (
 
 func NewRepositoryOnce(
 	client rueidis.Client,
-	locker rueidislock.Locker,
+	lockerDriver driver.LockerDriver,
 ) *repository.RepositoryContainer {
 	containerOnce.Do(func() {
-		container = newRepository(client, locker)
+		container = newRepository(client, lockerDriver)
 	})
 
 	return container
@@ -26,11 +26,11 @@ func NewRepositoryOnce(
 
 func newRepository(
 	client rueidis.Client,
-	locker rueidislock.Locker,
+	lockerDriver driver.LockerDriver,
 ) *repository.RepositoryContainer {
 	return &repository.RepositoryContainer{
 		TicketRepository:        NewTicketRepository(client),
 		TicketIDRepository:      NewTicketIDRepository(client),
-		PendingTicketRepository: NewPendingTicketRepository(client, locker),
+		PendingTicketRepository: NewPendingTicketRepository(client, lockerDriver),
 	}
 }

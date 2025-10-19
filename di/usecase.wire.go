@@ -9,6 +9,7 @@ import (
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/service"
 	"github.com/HMasataka/collision/infrastructure"
+	"github.com/HMasataka/collision/infrastructure/driver"
 	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
 	"github.com/google/wire"
@@ -23,6 +24,7 @@ func InitializeUseCase(
 	wire.Build(
 		infrastructure.NewClient,
 		infrastructure.NewLocker,
+		driver.NewLockerDriver,
 		persistence.NewRepositoryOnce,
 		usecase.NewUseCaseOnce,
 		service.NewTicketService,
