@@ -29,6 +29,7 @@ func newRepository(
 	locker rueidislock.Locker,
 ) *repository.RepositoryContainer {
 	return &repository.RepositoryContainer{
-		TicketRepository: NewTicketRepository(client, locker),
+		TicketRepository:   NewTicketRepository(client, locker),
+		TicketIDRepository: NewTicketIDRepository(client, locker),
 	}
 }

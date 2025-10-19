@@ -9,6 +9,7 @@ package di
 import (
 	"context"
 	"github.com/HMasataka/collision/domain/entity"
+	"github.com/HMasataka/collision/domain/service"
 	"github.com/HMasataka/collision/infrastructure"
 	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
@@ -20,6 +21,7 @@ func InitializeUseCase(ctx context.Context, matchFunctions map[*entity.MatchProf
 	client := infrastructure.NewClient()
 	locker := infrastructure.NewLocker()
 	repositoryContainer := persistence.NewRepositoryOnce(client, locker)
-	useCaseContainer := usecase.NewUseCaseOnce(matchFunctions, assigner, evaluator, repositoryContainer)
+	ticketService := service.NewTicketService(client, locker, repositoryContainer)
+	useCaseContainer := usecase.NewUseCaseOnce(matchFunctions, assigner, evaluator, repositoryContainer, ticketService)
 	return useCaseContainer
 }

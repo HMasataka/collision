@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/HMasataka/collision/domain/entity"
+	"github.com/HMasataka/collision/domain/service"
 	"github.com/HMasataka/collision/infrastructure"
 	"github.com/HMasataka/collision/infrastructure/persistence"
 	"github.com/HMasataka/collision/usecase"
@@ -24,6 +25,7 @@ func InitializeUseCase(
 		infrastructure.NewLocker,
 		persistence.NewRepositoryOnce,
 		usecase.NewUseCaseOnce,
+		service.NewTicketService,
 	)
 
 	return nil

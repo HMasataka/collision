@@ -8,8 +8,6 @@ import (
 )
 
 type TicketRepository interface {
-	GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error)
-	GetAllTicketIDs(ctx context.Context, limit int64) ([]string, error)
 	GetPendingTicketIDs(ctx context.Context) ([]string, error)
 	InsertPendingTicket(ctx context.Context, ticketIDs []string) error
 	GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, error)

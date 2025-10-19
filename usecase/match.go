@@ -7,6 +7,7 @@ import (
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/collision/domain/service"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,6 +23,7 @@ type matchUsecase struct {
 	evaluator entity.Evaluator
 
 	ticketRepository repository.TicketRepository
+	ticketService    service.TicketService
 }
 
 func NewMatchUsecase(
@@ -29,13 +31,15 @@ func NewMatchUsecase(
 	assigner entity.Assigner,
 	evaluator entity.Evaluator,
 	repositoryContainer *repository.RepositoryContainer,
+	ticketService service.TicketService,
 ) MatchUsecase {
 	return &matchUsecase{
 		mutex:            sync.RWMutex{},
 		matchFunctions:   matchFunctions,
 		assigner:         assigner,
-		ticketRepository: repositoryContainer.TicketRepository,
 		evaluator:        evaluator,
+		ticketRepository: repositoryContainer.TicketRepository,
+		ticketService:    ticketService,
 	}
 }
 
@@ -77,7 +81,7 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 }
 
 func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*entity.Ticket, error) {
-	activeTicketIDs, err := u.ticketRepository.GetActiveTicketIDs(ctx, limit)
+	activeTicketIDs, err := u.ticketService.GetActiveTicketIDs(ctx, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch active ticket IDs: %w", err)
 	}
