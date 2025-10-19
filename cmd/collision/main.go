@@ -36,11 +36,6 @@ var matchProfile = &entity.MatchProfile{
 }
 
 func main() {
-	listener, err := getListener()
-	if err != nil {
-		panic(err)
-	}
-
 	assigner := usecase.NewRandomAssigner()
 
 	matchFunctions := map[*entity.MatchProfile]entity.MatchFunction{
@@ -48,6 +43,7 @@ func main() {
 	}
 
 	u := di.InitializeUseCase(context.Background(), matchFunctions, assigner, nil)
+	frontendHandler := handler.NewFrontend(u.TicketUsecase, u.AssignUsecase)
 
 	go func() {
 		ctx := context.Background()
@@ -56,14 +52,26 @@ func main() {
 		}
 	}()
 
+	if err := startFrontEndServer(frontendHandler); err != nil {
+		panic(err)
+	}
+}
+
+func startFrontEndServer(frontendHandler *handler.Frontend) error {
+	listener, err := getListener()
+	if err != nil {
+		return err
+	}
+
 	grpcServer := grpc.NewServer()
 
-	frontendHandler := handler.NewFrontend(u.TicketUsecase, u.AssignUsecase)
 	pb.RegisterFrontendServiceServer(grpcServer, frontendHandler)
 
 	if err := grpcServer.Serve(listener); err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 func startMatchLoop(ctx context.Context, matchUsecase usecase.MatchUsecase) error {
