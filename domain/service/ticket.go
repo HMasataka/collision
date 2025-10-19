@@ -11,6 +11,8 @@ import (
 
 type TicketService interface {
 	GetActiveTicketIDs(ctx context.Context, limit int64) ([]string, error)
+	DeleteTicket(ctx context.Context, ticketID string) error
+	DeleteIndexTickets(ctx context.Context, ticketIDs []string) error
 }
 
 type ticketService struct {
@@ -86,4 +88,54 @@ func difference(a, b []string) []string {
 		}
 	}
 	return diff
+}
+
+func (s *ticketService) DeleteIndexTickets(ctx context.Context, ticketIDs []string) error {
+	// Acquire locks to avoid race condition with GetActiveTicketIDs.
+	//
+	// Without locks, when the following order,
+	// The assigned ticket is fetched again by the other backend, resulting in overlapping matches.
+	//
+	// 1. (GetActiveTicketIDs) getAllTicketIDs
+	// 2. (deIndexTickets) ZREM and SREM from ticket index
+	// 3. (GetActiveTicketIDs) getPendingTicketIDs
+	lockedCtx, unlock, err := s.locker.WithContext(ctx, s.fetchTicketsLock())
+	if err != nil {
+		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+	}
+	defer unlock()
+
+	cmds := []rueidis.Completed{
+		s.client.B().Zrem().Key(s.pendingRepository.PendingTicketKey()).Member(ticketIDs...).Build(),
+		s.client.B().Srem().Key(s.ticketIDRepository.TicketIDKey()).Member(ticketIDs...).Build(),
+	}
+
+	for _, resp := range s.client.DoMulti(lockedCtx, cmds...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to deindex tickets: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *ticketService) DeleteTicket(ctx context.Context, ticketID string) error {
+	lockedCtx, unlock, err := s.locker.WithContext(ctx, s.fetchTicketsLock())
+	if err != nil {
+		return fmt.Errorf("failed to acquire fetch tickets lock: %w", err)
+	}
+	defer unlock()
+
+	queries := []rueidis.Completed{
+		s.client.B().Del().Key(s.ticketRepository.TicketDataKey(ticketID)).Build(),
+		s.client.B().Srem().Key(s.ticketIDRepository.TicketIDKey()).Member(ticketID).Build(),
+		s.client.B().Zrem().Key(s.pendingRepository.PendingTicketKey()).Member(ticketID).Build(),
+	}
+	for _, resp := range s.client.DoMulti(lockedCtx, queries...) {
+		if err := resp.Error(); err != nil {
+			return fmt.Errorf("failed to delete ticket: %w", err)
+		}
+	}
+
+	return nil
 }

@@ -22,6 +22,7 @@ func InitializeUseCase(ctx context.Context, matchFunctions map[*entity.MatchProf
 	locker := infrastructure.NewLocker()
 	repositoryContainer := persistence.NewRepositoryOnce(client, locker)
 	ticketService := service.NewTicketService(client, locker, repositoryContainer)
-	useCaseContainer := usecase.NewUseCaseOnce(matchFunctions, assigner, evaluator, repositoryContainer, ticketService)
+	assignerService := service.NewAssignerService(client, locker, repositoryContainer, ticketService)
+	useCaseContainer := usecase.NewUseCaseOnce(matchFunctions, assigner, evaluator, repositoryContainer, ticketService, assignerService)
 	return useCaseContainer
 }

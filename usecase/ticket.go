@@ -6,6 +6,7 @@ import (
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/collision/domain/service"
 	"github.com/rs/xid"
 )
 
@@ -16,13 +17,16 @@ type TicketUsecase interface {
 
 type ticketUsecase struct {
 	ticketRepository repository.TicketRepository
+	ticketService    service.TicketService
 }
 
 func NewTicketUsecase(
 	repositoryContainer *repository.RepositoryContainer,
+	ticketService service.TicketService,
 ) TicketUsecase {
 	return &ticketUsecase{
 		ticketRepository: repositoryContainer.TicketRepository,
+		ticketService:    ticketService,
 	}
 }
 
@@ -42,5 +46,5 @@ func (u *ticketUsecase) CreateTicket(ctx context.Context, searchFields *entity.S
 }
 
 func (u *ticketUsecase) DeleteTicket(ctx context.Context, ticketID string) error {
-	return u.ticketRepository.DeleteTicket(ctx, ticketID)
+	return u.ticketService.DeleteTicket(ctx, ticketID)
 }

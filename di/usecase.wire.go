@@ -26,6 +26,7 @@ func InitializeUseCase(
 		persistence.NewRepositoryOnce,
 		usecase.NewUseCaseOnce,
 		service.NewTicketService,
+		service.NewAssignerService,
 	)
 
 	return nil

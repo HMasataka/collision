@@ -25,6 +25,7 @@ type matchUsecase struct {
 	ticketRepository        repository.TicketRepository
 	pendingTicketRepository repository.PendingTicketRepository
 	ticketService           service.TicketService
+	assignerService         service.AssignerService
 }
 
 func NewMatchUsecase(
@@ -33,6 +34,7 @@ func NewMatchUsecase(
 	evaluator entity.Evaluator,
 	repositoryContainer *repository.RepositoryContainer,
 	ticketService service.TicketService,
+	assignerService service.AssignerService,
 ) MatchUsecase {
 	return &matchUsecase{
 		mutex:                   sync.RWMutex{},
@@ -42,6 +44,7 @@ func NewMatchUsecase(
 		ticketRepository:        repositoryContainer.TicketRepository,
 		pendingTicketRepository: repositoryContainer.PendingTicketRepository,
 		ticketService:           ticketService,
+		assignerService:         assignerService,
 	}
 }
 
@@ -97,7 +100,7 @@ func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*
 	}
 
 	if len(deletedTicketIDs) > 0 {
-		if err := u.ticketRepository.DeleteIndexTickets(ctx, deletedTicketIDs); err != nil {
+		if err := u.ticketService.DeleteIndexTickets(ctx, deletedTicketIDs); err != nil {
 			return nil, fmt.Errorf("failed to delete index tickets: %w", err)
 		}
 	}
@@ -200,7 +203,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) erro
 		return fmt.Errorf("failed to assign matches: %w", err)
 	}
 	if len(asgs) > 0 {
-		notAssigned, err := u.ticketRepository.AssignTickets(ctx, asgs)
+		notAssigned, err := u.assignerService.AssignTickets(ctx, asgs)
 		ticketIDsToRelease = append(ticketIDsToRelease, notAssigned...)
 		if err != nil {
 			return fmt.Errorf("failed to assign tickets: %w", err)

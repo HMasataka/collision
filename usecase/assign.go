@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
-	"github.com/HMasataka/collision/domain/repository"
+	"github.com/HMasataka/collision/domain/service"
 	"github.com/sethvargo/go-retry"
 )
 
@@ -16,14 +16,14 @@ type AssignUsecase interface {
 }
 
 type assignUsecase struct {
-	ticketRepository repository.TicketRepository
+	assignerService service.AssignerService
 }
 
 func NewAssignUsecase(
-	repositoryContainer *repository.RepositoryContainer,
+	assignerService service.AssignerService,
 ) AssignUsecase {
 	return &assignUsecase{
-		ticketRepository: repositoryContainer.TicketRepository,
+		assignerService: assignerService,
 	}
 }
 
@@ -37,7 +37,7 @@ func (u *assignUsecase) Watch(ctx context.Context, ticketID string, onAssignment
 	backoff := newWatchAssignmentBackoff()
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
-		assignment, err := u.ticketRepository.GetAssignment(ctx, ticketID)
+		assignment, err := u.assignerService.GetAssignment(ctx, ticketID)
 		if err != nil {
 			if errors.Is(err, entity.ErrAssignmentNotFound) {
 				return retry.RetryableError(err)

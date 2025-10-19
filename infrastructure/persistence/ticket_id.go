@@ -6,22 +6,17 @@ import (
 
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/redis/rueidis"
-	"github.com/redis/rueidis/rueidislock"
 )
 
 type ticketIDRepository struct {
-	// NOTE 全体で共通の実態を持つ
-	locker rueidislock.Locker
 	client rueidis.Client
 }
 
 func NewTicketIDRepository(
 	client rueidis.Client,
-	locker rueidislock.Locker,
 ) repository.TicketIDRepository {
 	return &ticketIDRepository{
 		client: client,
-		locker: locker,
 	}
 }
 

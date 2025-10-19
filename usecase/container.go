@@ -25,9 +25,10 @@ func NewUseCaseOnce(
 	evaluator entity.Evaluator,
 	repositoryContainer *repository.RepositoryContainer,
 	ticketService service.TicketService,
+	assignerService service.AssignerService,
 ) *UseCaseContainer {
 	once.Do(func() {
-		container = newContainer(matchFunctions, assigner, evaluator, repositoryContainer, ticketService)
+		container = newContainer(matchFunctions, assigner, evaluator, repositoryContainer, ticketService, assignerService)
 	})
 
 	return container
@@ -39,10 +40,11 @@ func newContainer(
 	evaluator entity.Evaluator,
 	repositoryContainer *repository.RepositoryContainer,
 	ticketService service.TicketService,
+	assignerService service.AssignerService,
 ) *UseCaseContainer {
 	return &UseCaseContainer{
-		MatchUsecase:  NewMatchUsecase(matchFunctions, assigner, evaluator, repositoryContainer, ticketService),
-		TicketUsecase: NewTicketUsecase(repositoryContainer),
-		AssignUsecase: NewAssignUsecase(repositoryContainer),
+		MatchUsecase:  NewMatchUsecase(matchFunctions, assigner, evaluator, repositoryContainer, ticketService, assignerService),
+		TicketUsecase: NewTicketUsecase(repositoryContainer, ticketService),
+		AssignUsecase: NewAssignUsecase(assignerService),
 	}
 }
