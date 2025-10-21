@@ -9,7 +9,7 @@ import (
 )
 
 func NewRandomAssigner() entity.Assigner {
-	return entity.AssignerFunc(func(ctx context.Context, matches []*entity.Match) ([]*entity.AssignmentGroup, error) {
+	return entity.AssignerFunc(func(ctx context.Context, matches entity.Matches) ([]*entity.AssignmentGroup, error) {
 		var asgs []*entity.AssignmentGroup
 
 		for _, match := range matches {

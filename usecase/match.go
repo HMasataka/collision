@@ -108,12 +108,12 @@ func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*
 	return tickets, nil
 }
 
-func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) ([]*entity.Match, *errs.Error) {
+func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) (entity.Matches, *errs.Error) {
 	u.mutex.RLock()
 	mmfs := u.matchFunctions
 	u.mutex.RUnlock()
 
-	resCh := make(chan []*entity.Match, len(mmfs))
+	resCh := make(chan entity.Matches, len(mmfs))
 	eg, ctx := errgroup.WithContext(ctx)
 
 	for profile, mmf := range mmfs {
@@ -139,7 +139,7 @@ func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.
 
 	close(resCh)
 
-	var totalMatches []*entity.Match
+	var totalMatches entity.Matches
 	for matches := range resCh {
 		totalMatches = append(totalMatches, matches...)
 	}
@@ -163,12 +163,12 @@ func filterTickets(profile *entity.MatchProfile, tickets []*entity.Ticket) (map[
 	return poolTickets, nil
 }
 
-func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Match) ([]*entity.Match, *errs.Error) {
+func (u *matchUsecase) evaluateMatches(ctx context.Context, matches entity.Matches) (entity.Matches, *errs.Error) {
 	if u.evaluator == nil {
 		return matches, nil
 	}
 
-	evaluatedMatches := make([]*entity.Match, 0, len(matches))
+	evaluatedMatches := make(entity.Matches, 0, len(matches))
 
 	evaluatedMatchIDs, err := u.evaluator.Evaluate(ctx, matches)
 	if err != nil {
@@ -189,7 +189,7 @@ func (u *matchUsecase) evaluateMatches(ctx context.Context, matches []*entity.Ma
 	return evaluatedMatches, nil
 }
 
-func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) *errs.Error {
+func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs.Error {
 	var ticketIDsToRelease []string
 	defer func() {
 		if len(ticketIDsToRelease) > 0 {
@@ -199,7 +199,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) *err
 
 	asgs, err := u.assigner.Assign(ctx, matches)
 	if err != nil {
-		ticketIDsToRelease = append(ticketIDsToRelease, ticketIDsFromMatches(matches)...)
+		ticketIDsToRelease = append(ticketIDsToRelease, matches.TicketIDs()...)
 		return entity.ErrMatchAssignFailed.WithCause(err)
 	}
 	if len(asgs) > 0 {
@@ -212,7 +212,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches []*entity.Match) *err
 	return nil
 }
 
-func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matches []*entity.Match) []string {
+func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matches entity.Matches) []string {
 	matchedTickets := map[string]struct{}{}
 	for _, match := range matches {
 		for _, ticketID := range match.Tickets.IDs() {
@@ -228,14 +228,4 @@ func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matches []*entity.Mat
 	}
 
 	return unmatchedTicketIDs
-}
-
-func ticketIDsFromMatches(matches []*entity.Match) []string {
-	var ticketIDs []string
-	for _, match := range matches {
-		for _, ticket := range match.Tickets {
-			ticketIDs = append(ticketIDs, ticket.ID)
-		}
-	}
-	return ticketIDs
 }

@@ -15,6 +15,18 @@ type Match struct {
 	AllocateGameserver bool      `json:"allocate_gameserver"`
 }
 
+type Matches []*Match
+
+func (m Matches) TicketIDs() []string {
+	var ticketIDs []string
+
+	for _, match := range m {
+		ticketIDs = append(ticketIDs, match.Tickets.IDs()...)
+	}
+
+	return ticketIDs
+}
+
 type Backfill struct {
 	ID              string
 	SearchFields    *SearchFields
@@ -32,11 +44,11 @@ type MatchProfile struct {
 
 // MatchFunction performs matchmaking based on Ticket for each fetched Pool.
 type MatchFunction interface {
-	MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) ([]*Match, error)
+	MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) (Matches, error)
 }
 
-type MatchFunctionFunc func(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) ([]*Match, error)
+type MatchFunctionFunc func(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) (Matches, error)
 
-func (f MatchFunctionFunc) MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) ([]*Match, error) {
+func (f MatchFunctionFunc) MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) (Matches, error) {
 	return f(ctx, profile, poolTickets)
 }

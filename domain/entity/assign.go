@@ -16,11 +16,11 @@ type AssignmentGroup struct {
 
 // Assigner assigns a GameServer info to the established matches.
 type Assigner interface {
-	Assign(ctx context.Context, matches []*Match) ([]*AssignmentGroup, error)
+	Assign(ctx context.Context, matches Matches) ([]*AssignmentGroup, error)
 }
 
-type AssignerFunc func(ctx context.Context, matches []*Match) ([]*AssignmentGroup, error)
+type AssignerFunc func(ctx context.Context, matches Matches) ([]*AssignmentGroup, error)
 
-func (f AssignerFunc) Assign(ctx context.Context, matches []*Match) ([]*AssignmentGroup, error) {
+func (f AssignerFunc) Assign(ctx context.Context, matches Matches) ([]*AssignmentGroup, error) {
 	return f(ctx, matches)
 }
