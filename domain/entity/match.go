@@ -61,11 +61,11 @@ type MatchProfile struct {
 
 // MatchFunction performs matchmaking based on Ticket for each fetched Pool.
 type MatchFunction interface {
-	MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) (Matches, error)
+	MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string]Tickets) (Matches, error)
 }
 
-type MatchFunctionFunc func(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) (Matches, error)
+type MatchFunctionFunc func(ctx context.Context, profile *MatchProfile, poolTickets map[string]Tickets) (Matches, error)
 
-func (f MatchFunctionFunc) MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string][]*Ticket) (Matches, error) {
+func (f MatchFunctionFunc) MakeMatches(ctx context.Context, profile *MatchProfile, poolTickets map[string]Tickets) (Matches, error) {
 	return f(ctx, profile, poolTickets)
 }

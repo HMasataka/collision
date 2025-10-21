@@ -202,7 +202,7 @@ type PartyMatchFunction struct {
 
 ```go
 func NewCustomMatchFunction(config CustomConfig) entity.MatchFunction {
-    return entity.MatchFunctionFunc(func(ctx context.Context, profile *entity.MatchProfile, poolTickets map[string][]*entity.Ticket) ([]*entity.Match, error) {
+    return entity.MatchFunctionFunc(func(ctx context.Context, profile *entity.MatchProfile, poolTickets map[string]entity.Tickets) (entity.Matches, error) {
         // 1. バリデーション & サニタイズ
         // 2. ソート & グループ化
         // 3. マッチロジック実行

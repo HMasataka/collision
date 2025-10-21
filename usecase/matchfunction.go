@@ -8,7 +8,7 @@ import (
 )
 
 func NewSimple1vs1MatchFunction() entity.MatchFunction {
-	return entity.MatchFunctionFunc(func(ctx context.Context, profile *entity.MatchProfile, poolTickets map[string][]*entity.Ticket) (entity.Matches, error) {
+	return entity.MatchFunctionFunc(func(ctx context.Context, profile *entity.MatchProfile, poolTickets map[string]entity.Tickets) (entity.Matches, error) {
 		var matches entity.Matches
 
 		for _, tickets := range poolTickets {

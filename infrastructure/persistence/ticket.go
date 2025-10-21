@@ -35,7 +35,7 @@ func (r *ticketRepository) ticketIDFromRedisKey(key string) string {
 	return key
 }
 
-func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) ([]*entity.Ticket, []string, *errs.Error) {
+func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) (entity.Tickets, []string, *errs.Error) {
 	keys := make([]string, len(ticketIDs))
 	for i, ticketID := range ticketIDs {
 		keys[i] = r.TicketDataKey(ticketID)
@@ -46,7 +46,7 @@ func (r *ticketRepository) GetTickets(ctx context.Context, ticketIDs []string) (
 		return nil, nil, entity.ErrTicketGetFailed.WithCause(err)
 	}
 
-	tickets := make([]*entity.Ticket, 0, len(keys))
+	tickets := make(entity.Tickets, 0, len(keys))
 	var ticketIDsNotFound []string
 
 	for key, resp := range m {

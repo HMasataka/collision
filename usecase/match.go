@@ -86,7 +86,7 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 
 }
 
-func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*entity.Ticket, *errs.Error) {
+func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) (entity.Tickets, *errs.Error) {
 	activeTicketIDs, err := u.ticketService.GetActiveTicketIDs(ctx, limit)
 	if err != nil {
 		return nil, entity.ErrIndexGetFailed.WithCause(err)
@@ -109,7 +109,7 @@ func (u *matchUsecase) fetchActiveTickets(ctx context.Context, limit int64) ([]*
 	return tickets, nil
 }
 
-func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.Ticket) (entity.Matches, *errs.Error) {
+func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets entity.Tickets) (entity.Matches, *errs.Error) {
 	u.mutex.RLock()
 	mmfs := u.matchFunctions
 	u.mutex.RUnlock()
@@ -149,8 +149,8 @@ func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.
 	return totalMatches, nil
 }
 
-func filterTickets(profile *entity.MatchProfile, tickets []*entity.Ticket) (map[string][]*entity.Ticket, error) {
-	poolTickets := map[string][]*entity.Ticket{}
+func filterTickets(profile *entity.MatchProfile, tickets entity.Tickets) (map[string]entity.Tickets, error) {
+	poolTickets := map[string]entity.Tickets{}
 
 	for _, pool := range profile.Pools {
 		if _, ok := poolTickets[pool.Name]; !ok {
@@ -206,7 +206,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs
 	return nil
 }
 
-func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matchedTicketIDs []string) []string {
+func filterUnmatchedTicketIDs(allTickets entity.Tickets, matchedTicketIDs []string) []string {
 	matchedSet := lo.SliceToMap(matchedTicketIDs, func(id string) (string, struct{}) {
 		return id, struct{}{}
 	})
