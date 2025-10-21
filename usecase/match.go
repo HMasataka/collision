@@ -177,14 +177,8 @@ func (u *matchUsecase) evaluateMatches(ctx context.Context, matches entity.Match
 		return nil, entity.ErrMatchEvaluationFailed.WithCause(err)
 	}
 
-	evaluatedSet := lo.SliceToMap(evaluatedMatchIDs, func(id string) (string, struct{}) {
-		return id, struct{}{}
-	})
-
-	return lo.Filter(matches, func(match *entity.Match, _ int) bool {
-		_, evaluated := evaluatedSet[match.MatchID]
-		return evaluated
-	}), nil
+	evaluatedMatches, _ := matches.SplitByIDs(evaluatedMatchIDs)
+	return evaluatedMatches, nil
 }
 
 func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs.Error {

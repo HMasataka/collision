@@ -25,6 +25,25 @@ func (m Matches) TicketIDs() []string {
 	})
 }
 
+// SplitByIDs splits matches into matched and unmatched groups based on the provided IDs
+func (m Matches) SplitByIDs(ids []string) (matched Matches, unmatched Matches) {
+	idSet := lo.SliceToMap(ids, func(id string) (string, struct{}) {
+		return id, struct{}{}
+	})
+
+	matched = lo.Filter(m, func(match *Match, _ int) bool {
+		_, exists := idSet[match.MatchID]
+		return exists
+	})
+
+	unmatched = lo.Filter(m, func(match *Match, _ int) bool {
+		_, exists := idSet[match.MatchID]
+		return !exists
+	})
+
+	return matched, unmatched
+}
+
 type Backfill struct {
 	ID              string
 	SearchFields    *SearchFields
