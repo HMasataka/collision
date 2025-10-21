@@ -172,25 +172,19 @@ func (u *matchUsecase) evaluateMatches(ctx context.Context, matches entity.Match
 		return matches, nil
 	}
 
-	evaluatedMatches := make(entity.Matches, 0, len(matches))
-
 	evaluatedMatchIDs, err := u.evaluator.Evaluate(ctx, matches)
 	if err != nil {
 		return nil, entity.ErrMatchEvaluationFailed.WithCause(err)
 	}
 
-	evaluatedMap := map[string]struct{}{}
-	for _, evaluatedID := range evaluatedMatchIDs {
-		evaluatedMap[evaluatedID] = struct{}{}
-	}
+	evaluatedSet := lo.SliceToMap(evaluatedMatchIDs, func(id string) (string, struct{}) {
+		return id, struct{}{}
+	})
 
-	for _, match := range matches {
-		if _, ok := evaluatedMap[match.MatchID]; ok {
-			evaluatedMatches = append(evaluatedMatches, match)
-		}
-	}
-
-	return evaluatedMatches, nil
+	return lo.Filter(matches, func(match *entity.Match, _ int) bool {
+		_, evaluated := evaluatedSet[match.MatchID]
+		return evaluated
+	}), nil
 }
 
 func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs.Error {
