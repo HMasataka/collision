@@ -3,6 +3,8 @@ package entity
 import (
 	"context"
 	"time"
+
+	"github.com/samber/lo"
 )
 
 type Match struct {
@@ -18,13 +20,9 @@ type Match struct {
 type Matches []*Match
 
 func (m Matches) TicketIDs() []string {
-	var ticketIDs []string
-
-	for _, match := range m {
-		ticketIDs = append(ticketIDs, match.Tickets.IDs()...)
-	}
-
-	return ticketIDs
+	return lo.FlatMap(m, func(match *Match, _ int) []string {
+		return match.Tickets.IDs()
+	})
 }
 
 type Backfill struct {

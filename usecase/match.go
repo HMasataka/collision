@@ -8,6 +8,7 @@ import (
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/HMasataka/collision/domain/service"
 	"github.com/HMasataka/errs"
+	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -68,7 +69,7 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 		return err
 	}
 
-	unmatchedTicketIDs := filterUnmatchedTicketIDs(activeTickets, matches)
+	unmatchedTicketIDs := filterUnmatchedTicketIDs(activeTickets, matches.TicketIDs())
 	if len(unmatchedTicketIDs) > 0 {
 		if err := u.pendingTicketRepository.ReleaseTickets(ctx, unmatchedTicketIDs); err != nil {
 			return entity.ErrPendingTicketReleaseFailed.WithCause(err)
@@ -133,6 +134,7 @@ func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.
 			return nil
 		})
 	}
+
 	if err := eg.Wait(); err != nil {
 		return nil, entity.ErrMatchExecutionFailed.WithCause(err)
 	}
@@ -149,6 +151,7 @@ func (u *matchUsecase) makeMatches(ctx context.Context, activeTickets []*entity.
 
 func filterTickets(profile *entity.MatchProfile, tickets []*entity.Ticket) (map[string][]*entity.Ticket, error) {
 	poolTickets := map[string][]*entity.Ticket{}
+
 	for _, pool := range profile.Pools {
 		if _, ok := poolTickets[pool.Name]; !ok {
 			poolTickets[pool.Name] = nil
@@ -160,6 +163,7 @@ func filterTickets(profile *entity.MatchProfile, tickets []*entity.Ticket) (map[
 			}
 		}
 	}
+
 	return poolTickets, nil
 }
 
@@ -202,6 +206,7 @@ func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs
 		ticketIDsToRelease = append(ticketIDsToRelease, matches.TicketIDs()...)
 		return entity.ErrMatchAssignFailed.WithCause(err)
 	}
+
 	if len(asgs) > 0 {
 		notAssigned, err := u.assignerService.AssignTickets(ctx, asgs)
 		ticketIDsToRelease = append(ticketIDsToRelease, notAssigned...)
@@ -209,23 +214,17 @@ func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs
 			return entity.ErrMatchAssignFailed.WithCause(err)
 		}
 	}
+
 	return nil
 }
 
-func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matches entity.Matches) []string {
-	matchedTickets := map[string]struct{}{}
-	for _, match := range matches {
-		for _, ticketID := range match.Tickets.IDs() {
-			matchedTickets[ticketID] = struct{}{}
-		}
-	}
+func filterUnmatchedTicketIDs(allTickets []*entity.Ticket, matchedTicketIDs []string) []string {
+	matchedSet := lo.SliceToMap(matchedTicketIDs, func(id string) (string, struct{}) {
+		return id, struct{}{}
+	})
 
-	var unmatchedTicketIDs []string
-	for _, ticket := range allTickets {
-		if _, ok := matchedTickets[ticket.ID]; !ok {
-			unmatchedTicketIDs = append(unmatchedTicketIDs, ticket.ID)
-		}
-	}
-
-	return unmatchedTicketIDs
+	return lo.FilterMap(allTickets, func(ticket *entity.Ticket, _ int) (string, bool) {
+		_, matched := matchedSet[ticket.ID]
+		return ticket.ID, !matched
+	})
 }
