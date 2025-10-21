@@ -10,6 +10,7 @@ import (
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/HMasataka/errs"
 	"github.com/redis/rueidis"
+	"github.com/samber/lo"
 )
 
 type TicketService interface {
@@ -62,7 +63,7 @@ func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]
 		return nil, entity.ErrPendingTicketGetFailed.WithCause(err)
 	}
 
-	activeTicketIDs := difference(allTicketIDs, pendingTicketIDs)
+	activeTicketIDs, _ := lo.Difference(allTicketIDs, pendingTicketIDs)
 	if len(activeTicketIDs) == 0 {
 		return nil, nil
 	}
@@ -72,22 +73,6 @@ func (s *ticketService) GetActiveTicketIDs(ctx context.Context, limit int64) ([]
 	}
 
 	return activeTicketIDs, nil
-}
-
-// difference returns the elements in `a` that aren't in `b`.
-// https://stackoverflow.com/a/45428032
-func difference(a, b []string) []string {
-	mb := make(map[string]struct{}, len(b))
-	for _, x := range b {
-		mb[x] = struct{}{}
-	}
-	var diff []string
-	for _, x := range a {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
-	}
-	return diff
 }
 
 func (s *ticketService) Insert(ctx context.Context, target *entity.Ticket, ttl time.Duration) *errs.Error {

@@ -2,8 +2,6 @@ package entity
 
 import (
 	"time"
-
-	"github.com/samber/lo"
 )
 
 type Ticket struct {
@@ -29,31 +27,6 @@ func (t Tickets) IDs() []string {
 	}
 
 	return ids
-}
-
-// SplitByIDs splits tickets into matched and unmatched groups based on the provided IDs
-func (t Tickets) SplitByIDs(ids []string) (matched Tickets, unmatched Tickets) {
-	idSet := lo.SliceToMap(ids, func(id string) (string, struct{}) {
-		return id, struct{}{}
-	})
-
-	matched = lo.Filter(t, func(ticket *Ticket, _ int) bool {
-		if ticket == nil {
-			return false
-		}
-		_, exists := idSet[ticket.ID]
-		return exists
-	})
-
-	unmatched = lo.Filter(t, func(ticket *Ticket, _ int) bool {
-		if ticket == nil {
-			return false
-		}
-		_, exists := idSet[ticket.ID]
-		return !exists
-	})
-
-	return matched, unmatched
 }
 
 type SearchFields struct {
