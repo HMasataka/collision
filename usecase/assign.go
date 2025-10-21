@@ -57,6 +57,7 @@ func (u *assignUsecase) Watch(ctx context.Context, ticketID string, onAssignment
 	}); err != nil {
 		return entity.ErrAssignmentWatchFailed.WithCause(err)
 	}
+
 	return nil
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/HMasataka/collision/domain/repository"
 	"github.com/HMasataka/collision/domain/service"
 	"github.com/HMasataka/errs"
-	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -69,7 +68,8 @@ func (u *matchUsecase) Exec(ctx context.Context, searchFields *entity.SearchFiel
 		return err
 	}
 
-	unmatchedTicketIDs := filterUnmatchedTicketIDs(activeTickets, matches.TicketIDs())
+	_, unmatchedTickets := activeTickets.SplitByIDs(matches.TicketIDs())
+	unmatchedTicketIDs := unmatchedTickets.IDs()
 	if len(unmatchedTicketIDs) > 0 {
 		if err := u.pendingTicketRepository.ReleaseTickets(ctx, unmatchedTicketIDs); err != nil {
 			return entity.ErrPendingTicketReleaseFailed.WithCause(err)
@@ -204,15 +204,4 @@ func (u *matchUsecase) assign(ctx context.Context, matches entity.Matches) *errs
 	}
 
 	return nil
-}
-
-func filterUnmatchedTicketIDs(allTickets entity.Tickets, matchedTicketIDs []string) []string {
-	matchedSet := lo.SliceToMap(matchedTicketIDs, func(id string) (string, struct{}) {
-		return id, struct{}{}
-	})
-
-	return lo.FilterMap(allTickets, func(ticket *entity.Ticket, _ int) (string, bool) {
-		_, matched := matchedSet[ticket.ID]
-		return ticket.ID, !matched
-	})
 }
