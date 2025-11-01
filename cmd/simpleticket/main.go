@@ -5,19 +5,26 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/HMasataka/collision/domain/entity"
 	"github.com/HMasataka/collision/gen/pb"
 	"github.com/HMasataka/errs"
+	"github.com/jessevdk/go-flags"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func getConnection() (*grpc.ClientConn, error) {
-	port := "31080"
-	address := fmt.Sprintf("127.0.0.1:%v", port)
+type Options struct {
+	Host    string `short:"h" long:"host" description:"Server host" default:"127.0.0.1"`
+	Port    string `short:"p" long:"port" description:"Server port" default:"31080"`
+	Players int    `short:"n" long:"players" description:"Number of players" default:"4"`
+}
+
+func getConnection(host, port string) (*grpc.ClientConn, error) {
+	address := fmt.Sprintf("%s:%s", host, port)
 
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -83,7 +90,16 @@ func watchAssignments(ctx context.Context, client pb.FrontendServiceClient, tick
 }
 
 func main() {
-	conn, err := getConnection()
+	var opts Options
+	parser := flags.NewParser(&opts, flags.Default)
+	if _, err := parser.Parse(); err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		os.Exit(1)
+	}
+
+	conn, err := getConnection(opts.Host, opts.Port)
 	if err != nil {
 		panic(err)
 	}
@@ -94,8 +110,10 @@ func main() {
 
 	client := pb.NewFrontendServiceClient(conn)
 
-	// Create multiple tickets for different players
-	players := []string{"Player1", "Player2", "Player3", "Player4"}
+	players := make([]string, opts.Players)
+	for i := 0; i < opts.Players; i++ {
+		players[i] = fmt.Sprintf("Player%d", i+1)
+	}
 	var ticketIDs []string
 
 	fmt.Println("Creating tickets for players...")
